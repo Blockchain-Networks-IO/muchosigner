@@ -1,6 +1,7 @@
 /**
  * muchosigner.html — un móvil viejo en modo avión como llave de la bóveda
- * multifirma, de una multifirma EVM o de una billetera Bitcoin de firma única
+ * multifirma, de una multifirma EVM o de cuentas Bitcoin de firma única
+ * (nativa, Taproot, anidada; Legacy solo para vigilarla)
  * (`docs/MUCHOSIGNER.md`). Un único fichero, generado en
  * `pnpm build` por `scripts/build-muchosigner.ts`, con el MISMO código de la
  * bóveda que usa el monedero (`lib/web3/btcMultisig.ts`) y las mismas piezas de
@@ -54,7 +55,36 @@ import {
   type RegisteredSafe,
   type SafeTxReview,
 } from "./evm";
-import { deriveSingleSig, reviewSinglePsbt, signSinglePsbt, type SingleSig, type SinglePsbtReview } from "./single";
+import {
+  LEGACY_SIGN_REASON,
+  SINGLE_MAX_ACCOUNT_INDEX,
+  SINGLE_TYPES,
+  accountLabel,
+  deriveSingleSig,
+  reviewSinglePsbt,
+  signSinglePsbt,
+  singleAccount,
+  typeOf,
+  type SingleOwn,
+  type SinglePsbtReview,
+  type SinglePurpose,
+  type SingleSig,
+} from "./single";
+import {
+  absorbCarry,
+  acceptTyped,
+  acceptWord,
+  editAt,
+  evaluateTyped,
+  isComplete,
+  newEntry,
+  phraseOf,
+  removeAt,
+  setCount,
+  suggestions,
+  typedProblem,
+  type PhraseEntry,
+} from "./phraseEntry";
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 const esc = (t: string) =>
@@ -76,7 +106,14 @@ const state: {
   pendingTx?: { tx: OfflineSafeTx; review: SafeTxReview };
   /** La cuenta de firma única (BIP-84) de la misma frase. */
   single?: SingleSig;
+  /** Tipo y cuenta elegidos en «Bitcoin de firma única» (lo que se enseña). */
+  singlePurpose: SinglePurpose;
+  singleAccountIndex: number;
   pendingSingle?: { psbt: Uint8Array; review: SinglePsbtReview };
+  /** La frase que se está metiendo palabra a palabra (memoria; se vacía al abrir o cerrar). */
+  entry: PhraseEntry;
+  /** Lo que queda de la última palabra que se completó sola (ver `absorbCarry`). */
+  carry: string;
   /** La frase de la llave abierta, para pintar su SeedQR. Muere con ella. */
   mnemonic?: string;
   /** Cuántas palabras se crean con dados, monedas o el azar del móvil. */
@@ -86,7 +123,7 @@ const state: {
   pending?: { psbt: Uint8Array; review: PsbtReview };
   draft?: string; // frase recién creada, hasta que se comprueba
   checks?: number[];
-} = { words: 24 };
+} = { words: 24, singlePurpose: 84, singleAccountIndex: 0, entry: newEntry(12), carry: "" };
 
 // ─── QR en pantalla ──────────────────────────────────────────────────────────
 
@@ -252,6 +289,133 @@ function addCoin(bit: "0" | "1" | "del") {
   updateCoinsCount();
 }
 
+// ─── La frase palabra a palabra ──────────────────────────────────────────────
+
+function peCount(count: WordCount) {
+  state.entry = setCount(state.entry, count);
+  renderEntry();
+}
+
+function peSet(next: PhraseEntry, note = "") {
+  state.entry = next;
+  renderEntry(note);
+}
+
+/** Pone una palabra y deja la casilla lista para la siguiente. */
+function peAccept(word: string, carry = "") {
+  const at = state.entry.cursor;
+  state.carry = carry;
+  $<HTMLInputElement>("pe-input").value = "";
+  peSet(acceptWord(state.entry, word), `Palabra ${at + 1}: ${word}`);
+}
+
+function peInput() {
+  const input = $<HTMLInputElement>("pe-input");
+  const { carry, rest } = absorbCarry(state.carry, input.value);
+  state.carry = carry;
+  if (rest !== input.value) input.value = rest;
+  // Un espacio (o varias palabras pegadas) cierra lo escrito.
+  if (/\s/.test(rest)) {
+    const [first, ...more] = rest.split(/\s+/);
+    const w = first ? acceptTyped(first) : null;
+    if (first && !w) {
+      input.value = first;
+      renderSuggestions();
+      say("pe-msg", typedProblem(first) ?? "", "bad");
+      return;
+    }
+    if (w) peAccept(w);
+    input.value = more.join(" ");
+    if (input.value) peInput();
+    else renderSuggestions();
+    return;
+  }
+  const v = evaluateTyped(rest);
+  if (v.status === "unique") {
+    peAccept(v.word, v.word.slice(rest.length));
+    return;
+  }
+  renderSuggestions();
+  say("pe-msg", v.status === "unknown" ? typedProblem(rest) ?? "" : "", v.status === "unknown" ? "bad" : "info");
+}
+
+function peSubmit(ev: Event) {
+  ev.preventDefault();
+  const input = $<HTMLInputElement>("pe-input");
+  const w = acceptTyped(input.value);
+  if (w) peAccept(w);
+  else say("pe-msg", input.value.trim() ? typedProblem(input.value) ?? "" : "Escribe la palabra.", "bad");
+}
+
+function renderSuggestions() {
+  const box = $("pe-sugs");
+  const list = state.entry.cursor < state.entry.count ? suggestions($<HTMLInputElement>("pe-input").value) : [];
+  box.innerHTML = list.map(w => `<button type="button" data-w="${esc(w)}">${esc(w)}</button>`).join("");
+  box.querySelectorAll<HTMLButtonElement>("button").forEach(b => {
+    // Sin quitarle el foco a la casilla: el teclado se queda abierto.
+    b.onmousedown = e => e.preventDefault();
+    b.onclick = () => {
+      peAccept(b.dataset.w!);
+      $("pe-input").focus();
+    };
+  });
+}
+
+function renderEntry(note = "") {
+  const e = state.entry;
+  $("pe-12").classList.toggle("on", e.count === 12);
+  $("pe-24").classList.toggle("on", e.count === 24);
+  const lastFilled = e.words.reduce((m, w, i) => (w ? i : m), -1);
+  const upto = Math.min(e.count - 1, Math.max(lastFilled, e.cursor));
+  const items: string[] = [];
+  for (let i = 0; i <= upto; i++) {
+    const w = e.words[i];
+    const cls = [i === e.cursor ? "cur" : "", w ? "" : "hole"].filter(Boolean).join(" ");
+    items.push(`<li><button type="button" data-i="${i}"${cls ? ` class="${cls}"` : ""}><span>${i + 1}.</span>${w ? esc(w) : "…"}</button></li>`);
+  }
+  $("pe-list").innerHTML = items.join("");
+  $("pe-list")
+    .querySelectorAll<HTMLButtonElement>("button")
+    .forEach(b => {
+      b.onclick = () => {
+        state.carry = "";
+        $<HTMLInputElement>("pe-input").value = "";
+        peSet(editAt(state.entry, Number(b.dataset.i)));
+        $("pe-input").focus();
+      };
+    });
+  const writing = e.cursor < e.count;
+  show("pe-form", writing);
+  const current = writing ? e.words[e.cursor] : null;
+  $("pe-label").textContent = writing
+    ? `Palabra ${e.cursor + 1} de ${e.count}${current ? ` (ahora «${current}»: escribe la buena o bórrala)` : ""}`
+    : "";
+  show("pe-del", !!current);
+  $("pe-del").textContent = `Borrar la palabra ${e.cursor + 1}`;
+  renderSuggestions();
+  const done = isComplete(e);
+  $<HTMLButtonElement>("open").disabled = !done;
+  if (done) {
+    try {
+      phraseOf(e);
+      say("pe-msg", `Las ${e.count} palabras cuadran (la suma de control es correcta). Si usas passphrase, escríbela abajo; después, pulsa «Abrir mi llave».`, "ok");
+    } catch (err) {
+      say("pe-msg", errText(err), "bad");
+    }
+  } else {
+    say("pe-msg", note);
+  }
+}
+
+/** Vacía todo lo tecleado de la frase (palabra a palabra y de una vez). */
+function clearEntry() {
+  state.entry = newEntry(state.entry.count);
+  state.carry = "";
+  $<HTMLInputElement>("pe-input").value = "";
+  $<HTMLTextAreaElement>("words").value = "";
+  renderEntry();
+}
+
 /** Lee un SeedQR (de SeedSigner o copiado a mano) y abre la llave con él. */
 function scanSeedQr() {
   say("keymsg", "");
@@ -319,7 +483,7 @@ function openSigner(mnemonic: string) {
   state.draft = undefined;
   closeCamera();
   hideSeedQr();
-  $<HTMLTextAreaElement>("words").value = "";
+  clearEntry();
   $<HTMLInputElement>("passphrase").value = "";
   show("key-new", false);
   show("key-open");
@@ -331,6 +495,7 @@ function openSigner(mnemonic: string) {
   restoreVault();
   openEvm();
   show("sec-single");
+  renderSingleChoice();
 }
 
 function showDraft(mnemonic: string) {
@@ -376,6 +541,7 @@ function closeSigner() {
   state.pendingTx = undefined;
   state.single = undefined;
   state.pendingSingle = undefined;
+  clearEntry();
   closeCamera();
   stopQr("keyqr");
   stopQr("signedqr");
@@ -724,15 +890,45 @@ function confirmSafeTx() {
 
 // ─── 5 · Firma única (Bitcoin) ───────────────────────────────────────────────
 
+function setSinglePurpose(purpose: SinglePurpose) {
+  state.singlePurpose = purpose;
+  renderSingleChoice();
+}
+
+function setSingleAccount(n: number) {
+  const index = Math.min(SINGLE_MAX_ACCOUNT_INDEX, Math.max(0, Math.round(n) - 1));
+  state.singleAccountIndex = Number.isFinite(index) ? index : 0;
+  renderSingleChoice();
+}
+
+/** Tipo y cuenta elegidos: la ruta, el aviso de Legacy y el QR si está a la vista. */
+function renderSingleChoice() {
+  const { singlePurpose: purpose, singleAccountIndex: index } = state;
+  for (const t of SINGLE_TYPES) $(`st-${t.purpose}`).classList.toggle("on", t.purpose === purpose);
+  $<HTMLInputElement>("single-acct").value = String(index + 1);
+  $("single-path").textContent =
+    `${accountLabel(purpose, index)}: ruta m/${purpose}'/0'/${index}' (direcciones ${typeOf(purpose).prefix}).` +
+    (index === 0
+      ? " La cuenta 1 es la de casi todos los monederos."
+      : " Apunta el número de cuenta junto a tu frase: para recuperarla en otro monedero hace falta saberlo.");
+  show("single-legacy", !typeOf(purpose).signs);
+  $("single-legacy").textContent = LEGACY_SIGN_REASON;
+  if (!$("singleqr-wrap").hidden) showSingleAccount();
+}
+
 function showSingleAccount() {
   const sg = state.single;
   if (!sg) return;
-  paintQr("singleqr", () => sg.descriptor, false);
-  $("singledesc").textContent = sg.descriptor;
-  $("singlefirst").textContent = sg.firstAddress;
+  const acc = singleAccount(sg, state.singlePurpose, state.singleAccountIndex);
+  paintQr("singleqr", () => acc.descriptor, false);
+  $("singledesc").textContent = acc.descriptor;
+  $("singlefirst").textContent = acc.firstAddress;
   $("singlefp").textContent = sg.fingerprint;
   show("singleqr-wrap");
 }
+
+const ownText = (o: SingleOwn) =>
+  `${accountLabel(o.purpose, o.accountIndex)}, ${o.branch === 1 ? "cambio" : "recepción"} n.º ${o.index}, comprobado`;
 
 function scanSinglePsbt() {
   say("singlemsg", "");
@@ -767,14 +963,18 @@ function renderSingleReview(r: SinglePsbtReview) {
   const outs = r.outputs
     .map(o =>
       o.own
-        ? `<li class="own"><b>${esc(formatBtc(o.sats))}</b> vuelve a tu cuenta <span class="muted">(${o.own.branch === 1 ? "cambio" : "recepción"} n.º ${o.own.index}, comprobado)</span><br><code>${esc(o.address)}</code></li>`
+        ? `<li class="own"><b>${esc(formatBtc(o.sats))}</b> vuelve a tu cuenta <span class="muted">(${esc(ownText(o.own))})</span><br><code>${esc(o.address)}</code></li>`
         : `<li class="out"><b>${esc(formatBtc(o.sats))}</b> sale a<br><code>${esc(o.address)}</code></li>`
     )
     .join("");
+  const from = r.accounts.map(a => accountLabel(a.purpose, a.accountIndex)).join(", ");
   $("single-body").innerHTML =
     `<p>Sale de tu cuenta: <b>${esc(formatBtc(r.sendingSats))}</b> · comisión de la red: <b>${esc(formatBtc(r.feeSats))}</b></p>` +
     `<ul class="outs">${outs}</ul>` +
-    `<p class="muted">${r.inputs.length} ${r.inputs.length === 1 ? "moneda" : "monedas"} de tu cuenta.</p>` +
+    `<p class="muted">${r.inputs.length} ${r.inputs.length === 1 ? "moneda" : "monedas"} de: ${esc(from)}.</p>` +
+    (r.accounts.length > 1
+      ? `<p class="warn">Este envío junta monedas de ${r.accounts.length} cuentas o tipos de dirección distintos de tu frase. Todas son tuyas, pero en la cadena quedarán unidas: cualquiera verá que son del mismo dueño.</p>`
+      : "") +
     (r.alreadySigned ? '<p class="warn">Este envío ya está firmado por esta llave: firmarlo otra vez no añade nada.</p>' : "") +
     (r.feeSats * 10n > r.sendingSats && r.sendingSats > 0n
       ? '<p class="warn">La comisión es más del 10 % de lo que envías. Compruébalo antes de firmar.</p>'
@@ -817,7 +1017,27 @@ function init() {
   setTab("frase");
   setWords(24);
 
+  $("pe-12").onclick = () => peCount(12);
+  $("pe-24").onclick = () => peCount(24);
+  $("pe-input").oninput = peInput;
+  $("pe-form").onsubmit = peSubmit;
+  $("pe-del").onclick = () => {
+    state.carry = "";
+    $<HTMLInputElement>("pe-input").value = "";
+    const at = state.entry.cursor;
+    peSet(removeAt(state.entry, at), `Palabra ${at + 1} borrada: escribe la buena.`);
+    $("pe-input").focus();
+  };
+  renderEntry();
   $("open").onclick = () => {
+    try {
+      openSigner(phraseOf(state.entry));
+      say("keymsg", "");
+    } catch (e) {
+      say("pe-msg", errText(e), "bad");
+    }
+  };
+  $("open-all").onclick = () => {
     try {
       openSigner(parseMnemonic($<HTMLTextAreaElement>("words").value));
       say("keymsg", "");
@@ -911,6 +1131,12 @@ function init() {
     show("safetx-signed", false);
     say("safetxmsg", "Listo. Puedes leer otra operación cuando quieras.", "ok");
   };
+  for (const t of SINGLE_TYPES) $(`st-${t.purpose}`).onclick = () => setSinglePurpose(t.purpose);
+  $("acct-minus").onclick = () => setSingleAccount(state.singleAccountIndex);
+  $("acct-plus").onclick = () => setSingleAccount(state.singleAccountIndex + 2);
+  const acct = $<HTMLInputElement>("single-acct");
+  acct.onchange = () => setSingleAccount(Number(acct.value) || 1);
+  renderSingleChoice();
   $("show-single").onclick = showSingleAccount;
   $("scan-single").onclick = scanSinglePsbt;
   $("single-ok").onclick = confirmSingleSign;

@@ -4,18 +4,18 @@ Un único fichero, `muchosigner.html`, que convierte un móvil viejo **sin
 conexión** en una llave para firmar. Todo entra y sale por la cámara y por
 códigos QR: el móvil no se conecta a nada y tu frase no se guarda.
 
-Versión del 2026-10-21 (código 8ebb649fa402).
+Versión del 2026-10-21 (código 08d2ece4674d).
 SHA-256 de `muchosigner.html`:
 
 ```
-475bdc99ca226679023ea4c08d76f47a20bb8da45e1902c03c13978c7d020f08
+c8c0f5e45588bfd572628d9c7d65d824385998dd2686e17cbaae710aae64665b
 ```
 
 ## Para qué sirve
 
 | | Uso | El móvil es… |
 |---|---|---|
-| 1 | [Bitcoin de firma única](guias/1-bitcoin-firma-unica.md) | la única llave de una cuenta `bc1q…` |
+| 1 | [Bitcoin de firma única](guias/1-bitcoin-firma-unica.md) | la única llave de una cuenta Bitcoin (nativa `bc1q…`, Taproot `bc1p…` o anidada `3…`, en la cuenta que elijas) |
 | 2 | [Bitcoin multifirma, m de n](guias/2-bitcoin-multifirma.md) | una de las llaves de una bóveda |
 | 3 | [Redes EVM, multifirma 1 de 1](guias/3-evm-multifirma-1-de-1.md) | la única llave de un Safe |
 | 4 | [Redes EVM, multifirma m de n](guias/4-evm-multifirma-m-de-n.md) | una de las llaves de un Safe |
@@ -41,10 +41,12 @@ Si la huella no coincide, **no escribas tu frase en ese fichero**.
 
 - **Sin red.** La página lleva `Content-Security-Policy` con
   `connect-src 'none'` y su código no usa ninguna conexión.
-- **La frase no se guarda.** Se escribe (o se lee del SeedQR) en cada sesión.
+- **La frase no se guarda.** Se escribe palabra a palabra (o se lee del SeedQR)
+  en cada sesión.
 - **Solo firma lo tuyo.** Comprueba cada envío contra la cuenta, la bóveda o
   la multifirma registrada, y comprueba el cambio que vuelve a ti.
-- **Firmas Bitcoin con RFC 6979** (nonce determinista), sin «anti-exfil»: lo
+- **Firmas Bitcoin deterministas**: ECDSA con RFC 6979 y, en Taproot, BIP-340
+  con el azar auxiliar a cero; sin «anti-exfil»: lo
   que protege de un firmante trucado es usarlo como UNA llave de una
   multifirma con las otras de fabricantes distintos.
 - **No es una hardware wallet**: no tiene chip seguro. Su fuerza es no tener

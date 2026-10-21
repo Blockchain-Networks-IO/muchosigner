@@ -48,6 +48,18 @@ const html = `<!doctype html>
   .tabs{display:flex;gap:6px}
   .tabs button{flex:1;margin:0;padding:9px 4px;font-size:14px;background:transparent;color:var(--fg);border:1px solid var(--line)}
   .tabs button.on{background:var(--acc);color:#fff;border-color:var(--acc)}
+  .tabs.grid2{display:grid;grid-template-columns:1fr 1fr}
+  ul.uses{padding-left:18px;margin:6px 0} ul.uses li{margin:6px 0}
+  ol.pe-list{list-style:none;padding:0;margin:10px 0 4px;display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+  ol.pe-list button{margin:0;padding:6px 4px;font:14px/1.2 ui-monospace,monospace;font-weight:400;background:transparent;color:var(--fg);border:1px solid var(--line);text-align:left}
+  ol.pe-list button span{color:var(--muted);display:inline-block;min-width:2.4em}
+  ol.pe-list button.cur{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc)}
+  ol.pe-list button.hole{color:var(--muted)}
+  .sugs{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+  .sugs button{width:auto;margin:0;padding:10px 14px;font:15px ui-monospace,monospace;background:transparent;color:var(--fg);border:1px solid var(--acc)}
+  #pe-input{font-size:18px}
+  button:disabled{opacity:.45;cursor:default}
+  details{margin-top:10px} summary{cursor:pointer;color:var(--muted);font-size:14px}
   textarea,input{width:100%;font:15px/1.4 ui-monospace,monospace;padding:10px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--fg)}
   textarea{min-height:110px}
   label{display:block;margin-top:8px;font-size:14px}
@@ -94,7 +106,17 @@ const html = `<!doctype html>
 <body>
 <main>
 <h1>MuchoSigner</h1>
-<p class="muted">Convierte este móvil en una llave de tu bóveda multifirma de Bitcoin, de tus multifirmas EVM (Ethereum, Arbitrum, Base) o de una cuenta Bitcoin de firma única. Todo pasa en esta página y por la cámara: no se conecta a nada y tu frase no se guarda.</p>
+<p class="muted">Convierte este móvil en una llave. Todo pasa en esta página y por la cámara: no se conecta a nada y tu frase no se guarda.</p>
+
+<section class="card" id="uses">
+  <h2>Con tu llave podrás…</h2>
+  <ul class="uses">
+    <li><b>Firmar los envíos de una bóveda Bitcoin multifirma</b>, como una de sus llaves.</li>
+    <li><b>Ser una de las llaves de una multifirma EVM</b> (Ethereum, Arbitrum, Base), o la única: una multifirma 1 de 1.</li>
+    <li><b>Ser una cuenta Bitcoin de firma única</b>, en la que este móvil es la única llave.</li>
+  </ul>
+  <p class="muted">Cada uso tiene su sección, que aparece al abrir la llave.</p>
+</section>
 
 <div class="card" id="online-warn" hidden>
   <p class="bad">Este móvil tiene conexión. Un firmador no debe conectarse nunca: activa el modo avión, quita la wifi y saca la SIM antes de escribir o crear una frase.</p>
@@ -110,9 +132,26 @@ const html = `<!doctype html>
       <button id="btn-tab-azar" type="button">Azar del móvil</button>
     </div>
     <div id="tab-frase">
-      <label>Tus 12 o 24 palabras, en orden (bastan las 4 primeras letras de cada una)
-        <textarea id="words" autocomplete="off" autocapitalize="none" spellcheck="false"></textarea></label>
-      <button id="open" type="button">Abrir mi llave</button>
+      <p class="muted" style="margin-bottom:4px">¿Cuántas palabras tiene tu frase?</p>
+      <div class="tabs">
+        <button id="pe-12" type="button">12 palabras</button>
+        <button id="pe-24" type="button">24 palabras</button>
+      </div>
+      <ol class="pe-list" id="pe-list"></ol>
+      <form id="pe-form" autocomplete="off">
+        <label for="pe-input" id="pe-label">Palabra 1 de 12</label>
+        <input id="pe-input" type="text" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="next">
+      </form>
+      <div class="sugs" id="pe-sugs"></div>
+      <div id="pe-msg"></div>
+      <button class="sec" id="pe-del" type="button" hidden>Borrar esta palabra</button>
+      <button id="open" type="button" disabled>Abrir mi llave</button>
+      <details id="pe-all">
+        <summary>Escribirlas todas de una vez</summary>
+        <label>Tus 12 o 24 palabras, en orden (bastan las 4 primeras letras de cada una)
+          <textarea id="words" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false"></textarea></label>
+        <button id="open-all" type="button">Abrir mi llave con estas palabras</button>
+      </details>
       <button class="sec" id="scan-seedqr" type="button">Leer mi SeedQR con la cámara</button>
       <div id="seedcam"></div>
     </div>
@@ -252,8 +291,19 @@ const html = `<!doctype html>
 </section>
 
 <section class="card" id="sec-single" hidden>
-  <h2>5 · Billetera de firma única (Bitcoin)</h2>
-  <p class="muted">Tu misma frase da también una cuenta Bitcoin normal (direcciones bc1q…, ruta m/84'/0'/0'), en la que este móvil es la ÚNICA llave. El monedero la sigue sin poder gastarla; para mover el dinero hace falta firmar aquí. Quien tenga tu frase tiene ese dinero: guárdala como lo más valioso que tienes.</p>
+  <h2>5 · Bitcoin de firma única</h2>
+  <p class="muted">Tu misma frase da también cuentas Bitcoin normales en las que este móvil es la ÚNICA llave. El monedero las sigue sin poder gastarlas; para mover el dinero hace falta firmar aquí. Quien tenga tu frase tiene ese dinero: guárdala como lo más valioso que tienes.</p>
+  <p class="muted" style="margin-bottom:4px">Tipo de dirección</p>
+  <div class="tabs grid2">
+    <button id="st-84" type="button">Nativa (bc1q…)</button>
+    <button id="st-86" type="button">Taproot (bc1p…)</button>
+    <button id="st-49" type="button">Anidada (3…)</button>
+    <button id="st-44" type="button">Legacy (1…) · solo ver</button>
+  </div>
+  <label for="single-acct">Número de cuenta</label>
+  <span class="row"><button class="sec" id="acct-minus" type="button" aria-label="Cuenta anterior">−</button><input id="single-acct" type="number" inputmode="numeric" min="1" max="100" value="1" autocomplete="off"><button class="sec" id="acct-plus" type="button" aria-label="Cuenta siguiente">+</button></span>
+  <p class="muted" id="single-path"></p>
+  <p class="warn" id="single-legacy" hidden></p>
   <button class="sec" id="show-single" type="button">Enseñar mi cuenta para añadirla al monedero</button>
   <div id="singleqr-wrap" class="center" hidden>
     <p class="muted">En el monedero, en «Monederos de hardware» › añadir a mano, pulsa «Leer con la cámara» y apunta a este QR. Es PÚBLICO: deja ver el saldo, no gastarlo. Al añadirla, el monedero dice su huella y su primera dirección: tienen que ser <b id="singlefp"></b> y</p>
@@ -262,7 +312,7 @@ const html = `<!doctype html>
     <p><code id="singledesc"></code></p>
   </div>
   <h3>Firmar un envío</h3>
-  <p class="muted">En el monedero, en esa cuenta, pulsa «Enviar», prepara el envío y pulsa el icono del QR. Léelo aquí: verás a dónde va el dinero antes de firmar.</p>
+  <p class="muted">En el monedero, en esa cuenta, pulsa «Enviar», prepara el envío y pulsa el icono del QR. Léelo aquí: verás a dónde va el dinero antes de firmar. Sirve para cualquier tipo (salvo Legacy) y cuenta de tu frase: el móvil lo deduce del propio envío.</p>
   <button id="scan-single" type="button">Leer el envío</button>
   <div id="singlecam"></div>
   <div id="singlemsg"></div>
@@ -290,7 +340,7 @@ const html = `<!doctype html>
   </div>
 </section>
 
-<p class="muted">MuchoSigner, el firmador sin conexión de Mucho Wallet. Bóvedas multifirma P2WSH (ruta 48'/0'/0'/2'), multifirmas EVM (m/44'/60'/0'/0/0) y cuentas Bitcoin de firma única P2WPKH (m/84'/0'/0'). El código va entero dentro de este fichero.</p>
+<p class="muted">MuchoSigner, el firmador sin conexión de Mucho Wallet. Bóvedas multifirma P2WSH (ruta 48'/0'/0'/2'), multifirmas EVM (m/44'/60'/0'/0/0) y cuentas Bitcoin de firma única: nativa (m/84'), Taproot (m/86'), anidada (m/49') y Legacy (m/44', solo para vigilarla), en la cuenta que elijas. El código va entero dentro de este fichero.</p>
 </main>
 <script>${js}</script>
 </body>

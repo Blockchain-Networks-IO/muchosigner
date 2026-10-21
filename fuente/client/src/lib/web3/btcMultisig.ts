@@ -15,6 +15,7 @@ import { HDKey } from "@scure/bip32";
 import { descriptorChecksum } from "./btc/descriptorChecksum";
 import { base64, hex } from "@scure/base";
 import * as btc from "@scure/btc-signer";
+import { secp256k1 } from "@noble/curves/secp256k1.js";
 
 // ─── Descriptor ──────────────────────────────────────────────────────────────
 
@@ -661,7 +662,12 @@ export function attachPartialSig(
  * Firma todos los inputs de un PSBT con el cosigner Turnkey.
  * `derivePubkey(idx)` da la pubkey del cosigner Turnkey para ese input
  * (de la xpub importada — camino A — o la pubkey fija — camino B).
- * `signSighash(sighashHex)` envuelve la llamada a Turnkey `signRawPayload`.
+ * `signSighash(sighashHex)` envuelve la llamada a Turnkey `signRawPayload`
+ * (la sesión de (mucho)wallet o la passkey de la llave de respaldo).
+ *
+ * Cada firma se VERIFICA contra la pubkey del cosigner antes de meterla en el
+ * PSBT: una firma de otra clave (otra cuenta, otra llave) se para aquí con su
+ * motivo, no en la red al difundir.
  */
 export async function cosignWithExternalSigner(
   psbtBase64: string,
@@ -672,7 +678,12 @@ export async function cosignWithExternalSigner(
   for (let i = 0; i < tx.inputsLength; i++) {
     const sighash = sighashForInput(tx, i);
     const { r, s } = await signSighash(hex.encode(sighash));
-    attachPartialSig(tx, i, derivePubkey(i), r, s);
+    const pubkey = derivePubkey(i);
+    const der = derSigWithHashType(r, s).slice(0, -1);
+    if (!secp256k1.verify(der, sighash, pubkey, { prehash: false, format: "der" })) {
+      throw new Error("La firma no corresponde a esta llave de la bóveda (¿otra cuenta?): no se usa.");
+    }
+    attachPartialSig(tx, i, pubkey, r, s);
   }
   return base64.encode(tx.toPSBT());
 }
