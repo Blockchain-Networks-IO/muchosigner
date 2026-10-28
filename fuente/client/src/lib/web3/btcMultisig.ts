@@ -674,16 +674,38 @@ export async function cosignWithExternalSigner(
   derivePubkey: (idx: number) => Uint8Array,
   signSighash: (sighashHex: string) => Promise<{ r: string; s: string }>
 ): Promise<string> {
+  return cosignWithExternalBatchSigner(psbtBase64, derivePubkey, async (sighashes) => {
+    const out: { r: string; s: string }[] = [];
+    for (const h of sighashes) out.push(await signSighash(h));
+    return out;
+  });
+}
+
+/**
+ * Lo mismo, pero pidiendo TODAS las firmas de una vez (`signMany` recibe los
+ * sighash de cada entrada, en orden, y devuelve sus firmas en el mismo orden).
+ * Es lo que usa la llave de respaldo: una sola passkey por envío, no una por
+ * moneda. Cada firma se verifica igual, una a una, antes de entrar.
+ */
+export async function cosignWithExternalBatchSigner(
+  psbtBase64: string,
+  derivePubkey: (idx: number) => Uint8Array,
+  signMany: (sighashesHex: string[]) => Promise<{ r: string; s: string }[]>
+): Promise<string> {
   const tx = btc.Transaction.fromPSBT(base64.decode(psbtBase64.trim()));
-  for (let i = 0; i < tx.inputsLength; i++) {
-    const sighash = sighashForInput(tx, i);
-    const { r, s } = await signSighash(hex.encode(sighash));
+  const sighashes = Array.from({ length: tx.inputsLength }, (_, i) => sighashForInput(tx, i));
+  const sigs = await signMany(sighashes.map((h) => hex.encode(h)));
+  if (sigs.length !== sighashes.length) {
+    throw new Error(`Faltan firmas: se pidieron ${sighashes.length} y llegaron ${sigs.length}.`);
+  }
+  sighashes.forEach((sighash, i) => {
+    const { r, s } = sigs[i]!;
     const pubkey = derivePubkey(i);
     const der = derSigWithHashType(r, s).slice(0, -1);
     if (!secp256k1.verify(der, sighash, pubkey, { prehash: false, format: "der" })) {
       throw new Error("La firma no corresponde a esta llave de la bóveda (¿otra cuenta?): no se usa.");
     }
     attachPartialSig(tx, i, pubkey, r, s);
-  }
+  });
   return base64.encode(tx.toPSBT());
 }
