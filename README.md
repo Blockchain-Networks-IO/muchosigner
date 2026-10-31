@@ -4,11 +4,11 @@ Un único fichero, `muchosigner.html`, que convierte un móvil viejo **sin
 conexión** en una llave para firmar. Todo entra y sale por la cámara y por
 códigos QR: el móvil no se conecta a nada y tu frase no se guarda.
 
-Versión del 2026-10-28 (código 8404aa685aba).
+Versión del 2026-10-31 (código f05ba2bcc93e).
 SHA-256 de `muchosigner.html`:
 
 ```
-4b2440343d94a5bea06c5ad4fbd1027df42a17e5143e07168952988104830096
+5f68a4ed5067516d6bac39a47bae6e291c9a832d2034f8a6add28d1f40da1449
 ```
 
 ## Para qué sirve

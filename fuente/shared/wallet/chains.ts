@@ -111,6 +111,18 @@ export interface ChainConfig {
    * EVM. Añadir una red EVM a dRPC = poner aquí su nombre, sin env nueva.
    */
   drpcNetwork?: string;
+  /**
+   * Slug de la red en la Portfolio API de **Alchemy** (`eth-mainnet`,
+   * `arb-mainnet`…), candidata a sustituir a la Data API de dRPC
+   * (`server/wallet/alchemyDataClient.ts`). Solo EVM.
+   *
+   * Va declarado aquí, como `moralisParam` y `drpcNetwork`, porque Alchemy NO
+   * publica un endpoint que cruce su slug con el chain id numérico: el slug es
+   * una DECLARACIÓN nuestra y la respuesta se vuelve a cruzar contra ella. Una
+   * red EVM sin esto NO se da por cubierta y su saldo se lee por RPC — nunca
+   * se da por 0.
+   */
+  alchemyNetwork?: string;
 }
 
 /**
@@ -148,6 +160,7 @@ export const CHAINS: Record<ChainKey, ChainConfig> = {
     moralisParam: "eth",
     moralisRpcSlug: "eth",
     drpcNetwork: "ethereum",
+    alchemyNetwork: "eth-mainnet",
   },
   arbitrum: {
     key: "arbitrum",
@@ -168,6 +181,7 @@ export const CHAINS: Record<ChainKey, ChainConfig> = {
     moralisParam: "arbitrum",
     moralisRpcSlug: "arbitrum",
     drpcNetwork: "arbitrum",
+    alchemyNetwork: "arb-mainnet",
   },
   base: {
     key: "base",
@@ -188,6 +202,7 @@ export const CHAINS: Record<ChainKey, ChainConfig> = {
     moralisParam: "base",
     moralisRpcSlug: "base",
     drpcNetwork: "base",
+    alchemyNetwork: "base-mainnet",
   },
   optimism: {
     key: "optimism",
@@ -208,6 +223,7 @@ export const CHAINS: Record<ChainKey, ChainConfig> = {
     moralisParam: "optimism",
     moralisRpcSlug: "optimism",
     drpcNetwork: "optimism",
+    alchemyNetwork: "opt-mainnet",
   },
   polygon: {
     key: "polygon",
@@ -228,6 +244,7 @@ export const CHAINS: Record<ChainKey, ChainConfig> = {
     moralisParam: "polygon",
     moralisRpcSlug: "polygon",
     drpcNetwork: "polygon",
+    alchemyNetwork: "polygon-mainnet",
   },
   bnb: {
     key: "bnb",
@@ -257,6 +274,7 @@ export const CHAINS: Record<ChainKey, ChainConfig> = {
     moralisParam: "bsc",
     moralisRpcSlug: "bsc",
     drpcNetwork: "bsc",
+    alchemyNetwork: "bnb-mainnet",
   },
   hyperevm: {
     key: "hyperevm",
@@ -295,6 +313,7 @@ export const CHAINS: Record<ChainKey, ChainConfig> = {
     // En dRPC HyperEVM (chainId 999) se llama «Hyperliquid»: HyperCore no
     // tiene JSON-RPC, así que su nodo «Hyperliquid» ES la EVM.
     drpcNetwork: "hyperliquid",
+    alchemyNetwork: "hyperliquid-mainnet",
     // Swap/bridge: Li.Fi soporta HyperEVM como cadena EVM (chainId 999), así que
     // hay ruta directa EVM↔HyperEVM (la ejecuta `swap/lifiExec` por el proxy RPC
     // de 999). NEAR Intents queda como respaldo y se resuelve por el catálogo en
@@ -319,6 +338,7 @@ export const CHAINS: Record<ChainKey, ChainConfig> = {
     defaultRpcUrl: "https://rpc.mainnet.chain.robinhood.com",
     // Confirmado en el panel de dRPC (14-09-2026): lb.drpc.live/robinhood/<clave>.
     drpcNetwork: "robinhood",
+    alchemyNetwork: "robinhood-mainnet",
     coinType: 60,
     lifiKey: 4663,
     lifi: true,
