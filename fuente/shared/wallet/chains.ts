@@ -37,6 +37,7 @@ export type ChainKey =
   | "bnb"
   | "hyperevm"
   | "robinhood"
+  | "arc"
   | "solana"
   | "bitcoin";
 
@@ -111,6 +112,18 @@ export interface ChainConfig {
    * EVM. Añadir una red EVM a dRPC = poner aquí su nombre, sin env nueva.
    */
   drpcNetwork?: string;
+  /**
+   * La moneda NATIVA de la red es TAMBIÉN un ERC-20 en esta dirección: el MISMO
+   * dinero visto de dos formas. Caso de **Arc**, donde el gas es USDC: el
+   * nativo (18 decimales, `eth_getBalance`) y el token `0x3600…` (6 decimales,
+   * `balanceOf`) dan el mismo saldo. Sin esta marca la home sumaría el doble.
+   *
+   * Se trabaja SIEMPRE con el TOKEN (es como lo trata Li.Fi, que tiene ese
+   * contrato como «nativo» de Arc con 6 decimales, y así un USDC son 6
+   * decimales en todas las redes): la fila nativa se FUNDE en la del token
+   * (`foldNativeAliases`, `shared/wallet/nativeAlias.ts`), nunca se suma.
+   */
+  nativeAsToken?: { address: string; symbol: string; decimals: number };
   /**
    * Slug de la red en la Portfolio API de **Alchemy** (`eth-mainnet`,
    * `arb-mainnet`…), candidata a sustituir a la Data API de dRPC
@@ -357,6 +370,46 @@ export const CHAINS: Record<ChainKey, ChainConfig> = {
     // público, y el saldo (ETH + USDG) se lee por ese mismo RPC
     // (`rpcOnlyEvmChains()` → `server/wallet/rpcBalances.ts`).
   },
+  arc: {
+    key: "arc",
+    kind: "evm",
+    name: "Arc",
+    enabled: true,
+    // Una EVM más (coinType 60, misma dirección): VISIBLE por defecto. Petición
+    // del dueño (04-11-2026): un cliente mandó 83 USDC a una dirección de
+    // depósito en Arc y el monedero no veía la red. Los contratos del Safe
+    // (fábrica, 1.4.1, módulo 4337, MultiSend) y el EntryPoint 0.7 están en Arc
+    // en las direcciones canónicas, así que sus direcciones de depósito son
+    // las mismas que en las demás redes; comprobado en cadena.
+    evmChainId: 5042,
+    // El gas de Arc se paga en USDC. Como moneda nativa tiene 18 decimales,
+    // pero es el MISMO dinero que el ERC-20 `0x3600…` de 6: ver `nativeAsToken`.
+    nativeSymbol: "USDC",
+    nativeDecimals: 18,
+    nativeAsToken: {
+      address: "0x3600000000000000000000000000000000000000",
+      symbol: "USDC",
+      decimals: 6,
+    },
+    explorer: "https://explorer.arc.io",
+    rpcEnvKey: "VITE_ARC_RPC_URL",
+    defaultRpcUrl: "https://rpc.mainnet.arc.io",
+    coinType: 60,
+    // Multicall3 canónico: comprobado con `eth_getCode` en Arc (04-11-2026) y
+    // es el `multicallAddress` que publica Li.Fi para la 5042.
+    multicall3: MULTICALL3_ADDRESS,
+    // dRPC la sirve con el slug `arc` (arc.drpc.org responde con el chain id
+    // 5042) y su Data API la publica SIN chain id numérico: se cruza por este
+    // nombre, como Robinhood Chain (`drpcChainKeyOf`).
+    drpcNetwork: "arc",
+    // Sin `moralisParam` ni `alchemyNetwork`: no consta que la cubran, así que
+    // su saldo se lee por RPC (`rpcOnlyEvmChains()`), nativo + catálogo.
+    lifiKey: 5042,
+    lifi: true,
+    // El 1Click no publica ningún activo de Arc (catálogo del 04-11-2026): sin
+    // paso directo al saldo confidencial desde Arc.
+    nearIntents: false,
+  },
   bitcoin: {
     key: "bitcoin",
     kind: "utxo",
@@ -401,6 +454,16 @@ export function allChains(): ChainConfig[] {
 /** Solo las cadenas activas para la UI/flows. */
 export function enabledChains(): ChainConfig[] {
   return allChains().filter((c) => c.enabled);
+}
+
+/**
+ * El ERC-20 que es la MISMA moneda que el nativo de una red (`nativeAsToken`),
+ * o `null`. Hoy solo Arc (USDC). PURA.
+ */
+export function nativeAliasToken(
+  key: ChainKey | string
+): { address: string; symbol: string; decimals: number } | null {
+  return (CHAINS as Record<string, ChainConfig>)[key]?.nativeAsToken ?? null;
 }
 
 export function getChain(key: ChainKey): ChainConfig {

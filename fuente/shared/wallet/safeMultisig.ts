@@ -264,8 +264,9 @@ export function multisigChainName(chain: MultisigChain): string {
 }
 
 /** «Arbitrum, Base y Ethereum»: para los textos, que no se quedan viejos al añadir una red. */
-export function multisigChainsLabel(): string {
-  const names = MULTISIG_CHAINS.map(multisigChainName);
+export function multisigChainsLabel(chains: readonly MultisigChain[] = MULTISIG_CHAINS): string {
+  const names = chains.map(multisigChainName);
+  if (names.length === 0) return "ninguna red";
   return names.length === 1 ? names[0] : `${names.slice(0, -1).join(", ")} y ${names[names.length - 1]}`;
 }
 
@@ -317,14 +318,47 @@ export interface MultisigDef {
   owners: MultisigOwnerDef[];
   /** Firmas necesarias. Ausente = 2 (las creadas antes del quórum configurable). */
   threshold?: number;
+  /**
+   * IMPORTADA: un Safe que ya existía (la app de Safe, otro monedero). Su
+   * dirección NO se deriva de las llaves, así que nada puede recalcularla —
+   * ni para firmar mensajes, ni para crearla en otra red— y no lleva el módulo
+   * 4337, así que se gasta por la ruta clásica (el buzón de firmas).
+   * Ver `shared/wallet/safeImport.ts` y `docs/MULTIFIRMA-EVM.md` §24.
+   */
+  imported?: boolean;
+  /**
+   * Redes donde se ha COMPROBADO que esa dirección es esta multifirma. Ausente
+   * = todas (`MULTISIG_CHAINS`), que es el caso de las creadas aquí: su
+   * dirección sale de los mismos datos en todas. En una importada la misma
+   * dirección puede ser otro Safe —o nada— en otra red.
+   */
+  chains?: MultisigChain[];
   createdAt: string;
 }
 
 export const MULTISIG_LABEL_MAX = 32;
 
+/**
+ * El `saltNonce` de una multifirma IMPORTADA. Su dirección no se deriva, así
+ * que no hay número de serie que valga: se fija a «0» para que nada intente
+ * calcular con él (`shared/wallet/safeImport.ts`).
+ */
+export const IMPORTED_SALT_NONCE = "0";
+
 /** Firmas que pide la multifirma. */
 export function thresholdOf(def: Pick<MultisigDef, "threshold">): number {
   return def.threshold ?? SAFE_MULTISIG_THRESHOLD;
+}
+
+/** Las redes en las que esta multifirma opera de verdad. */
+export function multisigChainsOf(def: Pick<MultisigDef, "chains">): MultisigChain[] {
+  const c = def.chains?.filter((x): x is MultisigChain => (MULTISIG_CHAINS as readonly string[]).includes(x));
+  return c && c.length > 0 ? [...new Set(c)] : [...MULTISIG_CHAINS];
+}
+
+/** ¿Opera en esta red? (una importada, solo donde se comprobó). */
+export function multisigUsesChain(def: Pick<MultisigDef, "chains">, chain: string): boolean {
+  return (multisigChainsOf(def) as readonly string[]).includes(chain);
 }
 
 /** «2 de 3». */
@@ -486,15 +520,35 @@ export function multisigDefProblem(def: Omit<MultisigDef, "id" | "createdAt">): 
   } catch (e) {
     return e instanceof Error ? e.message : "Dueños no válidos.";
   }
-  if (def.owners.filter((o) => o.origin.kind === "mucho").length > 1) {
+  // Una multifirma creada aquí lleva UNA cuenta del monedero (la dedicada);
+  // una importada puede tener varias cuentas tuyas entre sus dueños y eso no
+  // lo decidimos nosotros: lo dice la cadena.
+  if (!def.imported && def.owners.filter((o) => o.origin.kind === "mucho").length > 1) {
     return "Solo puede haber una llave de la (mucho) wallet.";
+  }
+  if (def.imported) {
+    // Una importada se registra con las redes donde se COMPROBÓ, y su salt no
+    // se usa nunca (su dirección no se deriva): se fija para que nadie calcule
+    // con él.
+    if (!def.chains || def.chains.length === 0) return "Una multifirma importada tiene que decir en qué redes se ha comprobado.";
+    const mala = def.chains.find((c) => !(MULTISIG_CHAINS as readonly string[]).includes(c));
+    if (mala) return `La multifirma no opera en ${mala}.`;
+    if (def.saltNonce !== IMPORTED_SALT_NONCE) return "Una multifirma importada no lleva número de serie.";
   }
   for (const o of def.owners) {
     if (o.label !== undefined && (o.label.trim().length === 0 || o.label.length > MULTISIG_LABEL_MAX)) {
       return "El nombre de una llave no es válido.";
     }
-    if (o.origin.kind === "mucho" && !/^m\/44'\/60'\/0'\/7\/\d+$/.test(o.origin.path)) {
+    // En una multifirma creada AQUÍ, la llave del monedero es su cuenta
+    // dedicada (rama `/7/`): la elige el asistente. En una IMPORTADA el dueño
+    // ya existe en la cadena y puede ser cualquier cuenta suya —la de siempre,
+    // una cuenta 2, la de una semilla importada—; exigirle la rama dedicada
+    // dejaría fuera justo el caso normal (un Safe que firmas con tu cuenta).
+    if (o.origin.kind === "mucho" && !def.imported && !/^m\/44'\/60'\/0'\/7\/\d+$/.test(o.origin.path)) {
       return "La llave de la (mucho) wallet tiene que ser su cuenta dedicada.";
+    }
+    if (o.origin.kind === "mucho" && def.imported && !/^m(\/\d+'?)+$/.test(o.origin.path)) {
+      return "La ruta de la llave de la (mucho) wallet no es válida.";
     }
     if (o.origin.kind === "security-key" && !/^[0-9a-f-]{8,64}$/i.test(o.origin.subOrgId)) {
       return "La llave de respaldo no es válida.";

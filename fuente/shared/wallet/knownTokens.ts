@@ -84,6 +84,16 @@ const USDC: Partial<Record<ChainKey, KnownToken>> = {
     decimals: 6,
     isStablecoin: true,
   },
+  arc: {
+    symbol: "USDC",
+    // En Arc el USDC es la moneda del gas, y su forma ERC-20 es este contrato
+    // de 6 decimales (comprobado en cadena: `symbol()` USDC, `decimals()` 6, el
+    // 04-11-2026; es el «nativo» que publica Li.Fi para la 5042). El nativo de
+    // 18 decimales es el MISMO dinero: no se suma (`nativeAlias.ts`).
+    address: "0x3600000000000000000000000000000000000000",
+    decimals: 6,
+    isStablecoin: true,
+  },
   solana: {
     symbol: "USDC",
     // Mint SPL de USDC en Solana (Circle). base58, NO es una dirección EVM: el
