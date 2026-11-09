@@ -94,6 +94,15 @@ const USDC: Partial<Record<ChainKey, KnownToken>> = {
     decimals: 6,
     isStablecoin: true,
   },
+  rise: {
+    // USDC.e: el USDC que trae a RISE el puente de LayerZero de RISEx (mint y
+    // burn) y el colateral de sus perpetuos (`usdc` en `/v1/system/config`).
+    // Comprobado en cadena el 09-11-2026: `symbol()` USDC.e, `decimals()` 6.
+    symbol: "USDC.e",
+    address: "0xe436820ba0C69702c1d3E601d421c0eF38262739",
+    decimals: 6,
+    isStablecoin: true,
+  },
   solana: {
     symbol: "USDC",
     // Mint SPL de USDC en Solana (Circle). base58, NO es una dirección EVM: el
@@ -129,10 +138,27 @@ export const USDT_BNB: KnownToken = {
   isStablecoin: true,
 };
 
+/**
+ * WBTC.e y WETH en RISE (red de RISEx). Comprobados en cadena el 09-11-2026:
+ * `symbol()` WBTC.e / 8 decimales (puente de LayerZero de RISEx) y WETH / 18
+ * (el predeploy de OP Stack).
+ */
+export const WBTC_RISE: KnownToken = {
+  symbol: "WBTC.e",
+  address: "0x0F873d666Db6da313416b002035620EAe64f4780",
+  decimals: 8,
+};
+export const WETH_RISE: KnownToken = {
+  symbol: "WETH",
+  address: "0x4200000000000000000000000000000000000006",
+  decimals: 18,
+};
+
 /** Otros tokens conocidos por cadena (además del USDC). */
 const EXTRA: Partial<Record<ChainKey, KnownToken[]>> = {
   bnb: [USDT_BNB],
   robinhood: [USDG_ROBINHOOD],
+  rise: [WBTC_RISE, WETH_RISE],
 };
 
 /** Tokens ERC-20 conocidos para una cadena (sin contar la moneda nativa). */

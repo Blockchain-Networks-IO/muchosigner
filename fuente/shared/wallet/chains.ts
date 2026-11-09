@@ -38,6 +38,7 @@ export type ChainKey =
   | "hyperevm"
   | "robinhood"
   | "arc"
+  | "rise"
   | "solana"
   | "bitcoin";
 
@@ -408,6 +409,35 @@ export const CHAINS: Record<ChainKey, ChainConfig> = {
     lifi: true,
     // El 1Click no publica ningún activo de Arc (catálogo del 04-11-2026): sin
     // paso directo al saldo confidencial desde Arc.
+    nearIntents: false,
+  },
+  rise: {
+    key: "rise",
+    kind: "evm",
+    name: "RISE",
+    enabled: true,
+    // Red de RISEx, el exchange de perpetuos del farmeador delta neutral
+    // (`docs/RISEX-DELEGADO.md`; decisión del dueño, 09-11-2026). OCULTA por
+    // defecto: la usa quien opera en RISEx; se añade en Ajustes › Redes y la
+    // detección de saldo la enseña si hay algo.
+    optIn: true,
+    // Rollup de OP Stack: el gas es ETH (18 decimales) y su RPC responde
+    // `eth_chainId` = 0x1039 (comprobado el 09-11-2026).
+    evmChainId: 4153,
+    nativeSymbol: "ETH",
+    nativeDecimals: 18,
+    explorer: "https://explorer.risechain.com",
+    rpcEnvKey: "VITE_RISE_RPC_URL",
+    defaultRpcUrl: "https://rpc.risechain.com",
+    coinType: 60,
+    // Multicall3 canónico: `eth_getCode` con código (09-11-2026) y es el que
+    // publica RISEx en `/v1/system/config`.
+    multicall3: MULTICALL3_ADDRESS,
+    // Sin `moralisParam`, `drpcNetwork` (rise.drpc.org da 404) ni
+    // `alchemyNetwork`: su saldo se lee por RPC (`rpcOnlyEvmChains()`).
+    // Ni Li.Fi ni el 1Click la cubren: los dólares llegan por el puente de
+    // LayerZero de RISEx (USDC.e) desde Arbitrum, Ethereum o Base.
+    lifi: false,
     nearIntents: false,
   },
   bitcoin: {
