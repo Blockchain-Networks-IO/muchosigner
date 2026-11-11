@@ -4,11 +4,11 @@ Un único fichero, `muchosigner.html`, que convierte un móvil viejo **sin
 conexión** en una llave para firmar. Todo entra y sale por la cámara y por
 códigos QR: el móvil no se conecta a nada y tu frase no se guarda.
 
-Versión del 2026-11-09 (código 837c422ae0bf).
+Versión del 2026-11-11 (código c0f8e067cef3).
 SHA-256 de `muchosigner.html`:
 
 ```
-c82c1457332425cacf9a0ab4e09d09feadd5929f528b4dc444867c4d2365d96d
+babca31863362c6e19376a442763f98b5f3f51a6650bc77d37bbd335a39215ef
 ```
 
 ## Para qué sirve
@@ -19,6 +19,7 @@ c82c1457332425cacf9a0ab4e09d09feadd5929f528b4dc444867c4d2365d96d
 | 2 | [Bitcoin multifirma, m de n](guias/2-bitcoin-multifirma.md) | una de las llaves de una bóveda |
 | 3 | [Redes EVM, multifirma 1 de 1](guias/3-evm-multifirma-1-de-1.md) | la única llave de un Safe |
 | 4 | [Redes EVM, multifirma m de n](guias/4-evm-multifirma-m-de-n.md) | una de las llaves de un Safe |
+| 5 | [Ver mis direcciones](guias/5-ver-mis-direcciones.md) | un visor: comprueba sin conexión que tu frase es la de tu monedero |
 
 Empieza por [Antes de empezar: el móvil y el fichero](guias/0-antes-de-empezar.md).
 La misma frase sirve para los cuatro usos. El ordenador que prepara los envíos

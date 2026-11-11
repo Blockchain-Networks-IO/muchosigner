@@ -93,6 +93,41 @@ export const UNISWAP_V3_FORKS: Partial<Record<ChainKey, readonly UniswapV3Fork[]
 };
 
 /**
+ * Revert Lend: la BÓVEDA (`V3Vault`) de cada red, que guarda como garantía
+ * NFTs de Uniswap v3 y presta su activo (USDC en las tres). Fuente: «Contract
+ * Addresses» de docs.revert.finance (09-11-2026), COMPROBADAS en cadena el
+ * mismo día: `asset()` es el USDC de la red y `nonfungiblePositionManager()`
+ * el de Uniswap v3 de `UNISWAP_V3_POSITION_MANAGER`. La bóveda de Aerodrome
+ * (Base) no entra: sus posiciones no son de Uniswap.
+ */
+export interface RevertLendVault {
+  vault: Address;
+  asset: Address;
+  assetSymbol: string;
+  assetDecimals: number;
+}
+export const REVERT_LEND: Partial<Record<ChainKey, RevertLendVault>> = {
+  arbitrum: {
+    vault: "0x74E6AFeF5705BEb126C6d3Bf46f8fad8F3e07825",
+    asset: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+    assetSymbol: "USDC",
+    assetDecimals: 6,
+  },
+  base: {
+    vault: "0x36AEAe0E411a1E28372e0d66f02E57744EbE7599",
+    asset: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+    assetSymbol: "USDC",
+    assetDecimals: 6,
+  },
+  ethereum: {
+    vault: "0xa2754543f69dC036764bBfad16d2A74F5cD15667",
+    asset: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+    assetSymbol: "USDC",
+    assetDecimals: 6,
+  },
+};
+
+/**
  * Fluid (Instadapp): los RESOLVERS de lectura y la fábrica de vaults (el
  * ERC-721 de las posiciones). Misma dirección en todas sus redes (CREATE2).
  * Fuente: `deployments/deployments.md` de `Instadapp/fluid-contracts-public`

@@ -85,6 +85,7 @@ import {
   typedProblem,
   type PhraseEntry,
 } from "./phraseEntry";
+import { ADDRESSES_MAX, ADDRESSES_PAGE, btcAddresses, evmAccountAddresses } from "./addresses";
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 const esc = (t: string) =>
@@ -110,6 +111,8 @@ const state: {
   singlePurpose: SinglePurpose;
   singleAccountIndex: number;
   pendingSingle?: { psbt: Uint8Array; review: SinglePsbtReview };
+  /** «Ver mis direcciones»: qué red, tipo, cuenta y rama, y cuántas se ven. */
+  addr: { net: "evm" | "btc"; purpose: SinglePurpose; accountIndex: number; branch: 0 | 1; shown: number };
   /** La frase que se está metiendo palabra a palabra (memoria; se vacía al abrir o cerrar). */
   entry: PhraseEntry;
   /** Lo que queda de la última palabra que se completó sola (ver `absorbCarry`). */
@@ -123,7 +126,14 @@ const state: {
   pending?: { psbt: Uint8Array; review: PsbtReview };
   draft?: string; // frase recién creada, hasta que se comprueba
   checks?: number[];
-} = { words: 24, singlePurpose: 84, singleAccountIndex: 0, entry: newEntry(12), carry: "" };
+} = {
+  words: 24,
+  singlePurpose: 84,
+  singleAccountIndex: 0,
+  addr: { net: "evm", purpose: 84, accountIndex: 0, branch: 0, shown: ADDRESSES_PAGE },
+  entry: newEntry(12),
+  carry: "",
+};
 
 // ─── QR en pantalla ──────────────────────────────────────────────────────────
 
@@ -496,6 +506,9 @@ function openSigner(mnemonic: string) {
   openEvm();
   show("sec-single");
   renderSingleChoice();
+  state.addr = { net: "evm", purpose: 84, accountIndex: 0, branch: 0, shown: ADDRESSES_PAGE };
+  show("sec-addrs");
+  renderAddrs();
 }
 
 function showDraft(mnemonic: string) {
@@ -553,6 +566,8 @@ function closeSigner() {
   show("single-review", false);
   show("single-signed", false);
   show("sec-single", false);
+  show("sec-addrs", false);
+  $("ad-list").innerHTML = "";
   show("evmqr-wrap", false);
   show("safetx-review", false);
   show("safetx-signed", false);
@@ -1002,6 +1017,42 @@ function confirmSingleSign() {
 
 // ─── Arranque ────────────────────────────────────────────────────────────────
 
+// ─── 6 · Ver mis direcciones ─────────────────────────────────────────────────
+
+/** Cambia lo elegido y vuelve a empezar la lista por la primera página. */
+function setAddr(next: Partial<typeof state.addr>) {
+  state.addr = { ...state.addr, ...next, shown: ADDRESSES_PAGE };
+  renderAddrs();
+}
+
+function renderAddrs() {
+  const sg = state.single;
+  const a = state.addr;
+  $("ad-evm").classList.toggle("on", a.net === "evm");
+  $("ad-btc").classList.toggle("on", a.net === "btc");
+  show("ad-btc-opts", a.net === "btc");
+  for (const t of SINGLE_TYPES) $(`ad-${t.purpose}`).classList.toggle("on", t.purpose === a.purpose);
+  $("ad-b0").classList.toggle("on", a.branch === 0);
+  $("ad-b1").classList.toggle("on", a.branch === 1);
+  $<HTMLInputElement>("ad-acct").value = String(a.accountIndex + 1);
+  $("ad-note").textContent =
+    a.net === "evm"
+      ? "La Cuenta N de Mucho Wallet es la ruta m/44'/60'/0'/0/N−1, la de MetaMask. Es la misma dirección en Ethereum, Arbitrum, Base y el resto de redes EVM."
+      : `${accountLabel(a.purpose, a.accountIndex)}: ruta m/${a.purpose}'/0'/${a.accountIndex}'. ` +
+        (a.branch === 0
+          ? "Recepción: las direcciones para cobrar. El monedero estrena una en cada cobro, así que la tuya puede no ser la primera."
+          : "Cambio: a donde vuelve lo que sobra de un envío. El monedero no te las enseña para cobrar.");
+  if (!sg) return;
+  const list =
+    a.net === "evm"
+      ? evmAccountAddresses(sg.root, 0, a.shown)
+      : btcAddresses(sg.root, a.purpose, a.accountIndex, a.branch, 0, a.shown);
+  $("ad-list").innerHTML = list
+    .map(x => `<li><span class="muted">${a.net === "evm" ? `Cuenta ${x.n}` : `n.º ${x.n}`} · ${esc(x.path)}</span><code>${esc(x.address)}</code></li>`)
+    .join("");
+  ($("ad-more") as HTMLButtonElement).disabled = a.shown + ADDRESSES_PAGE > ADDRESSES_MAX;
+}
+
 function connectionNotice() {
   show("online-warn", navigator.onLine);
 }
@@ -1149,6 +1200,20 @@ function init() {
     stopQr("singlesignedqr");
     show("single-signed", false);
     say("singlemsg", "Listo. Puedes leer otro envío cuando quieras.", "ok");
+  };
+  $("ad-evm").onclick = () => setAddr({ net: "evm" });
+  $("ad-btc").onclick = () => setAddr({ net: "btc" });
+  for (const t of SINGLE_TYPES) $(`ad-${t.purpose}`).onclick = () => setAddr({ purpose: t.purpose });
+  $("ad-b0").onclick = () => setAddr({ branch: 0 });
+  $("ad-b1").onclick = () => setAddr({ branch: 1 });
+  const adAcct = (n: number) => setAddr({ accountIndex: Math.min(ADDRESSES_MAX - 1, Math.max(0, Math.round(n) - 1)) || 0 });
+  $("ad-minus").onclick = () => adAcct(state.addr.accountIndex);
+  $("ad-plus").onclick = () => adAcct(state.addr.accountIndex + 2);
+  const adInput = $<HTMLInputElement>("ad-acct");
+  adInput.onchange = () => adAcct(Number(adInput.value) || 1);
+  $("ad-more").onclick = () => {
+    state.addr = { ...state.addr, shown: Math.min(ADDRESSES_MAX, state.addr.shown + ADDRESSES_PAGE) };
+    renderAddrs();
   };
   $("signed-done").onclick = () => {
     stopQr("signedqr");

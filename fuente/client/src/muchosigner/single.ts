@@ -103,8 +103,8 @@ export interface SingleSig extends SingleAccount {
 
 const xOnly = (pub: Uint8Array) => pub.slice(1);
 
-/** Pago (script, y redeemScript en la anidada) de una clave para un tipo. */
-function paymentFor(pub: Uint8Array, purpose: SinglePurpose) {
+/** Pago (script, y redeemScript en la anidada) de una clave para un tipo. También lo usa «Ver mis direcciones» (`addresses.ts`). */
+export function paymentFor(pub: Uint8Array, purpose: SinglePurpose) {
   if (purpose === 84) return btc.p2wpkh(pub);
   if (purpose === 86) return btc.p2tr(xOnly(pub));
   if (purpose === 44) return btc.p2pkh(pub);

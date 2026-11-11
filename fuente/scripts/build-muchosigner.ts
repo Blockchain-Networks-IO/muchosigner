@@ -50,6 +50,7 @@ const html = `<!doctype html>
   .tabs button.on{background:var(--acc);color:#fff;border-color:var(--acc)}
   .tabs.grid2{display:grid;grid-template-columns:1fr 1fr}
   ul.uses{padding-left:18px;margin:6px 0} ul.uses li{margin:6px 0}
+  ol.addrs{list-style:none;padding:0;margin:8px 0} ol.addrs li{padding:7px 0;border-bottom:1px solid var(--line)} ol.addrs li span{display:block;font-size:13px}
   ol.pe-list{list-style:none;padding:0;margin:10px 0 4px;display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
   ol.pe-list button{margin:0;padding:6px 4px;font:14px/1.2 ui-monospace,monospace;font-weight:400;background:transparent;color:var(--fg);border:1px solid var(--line);text-align:left}
   ol.pe-list button span{color:var(--muted);display:inline-block;min-width:2.4em}
@@ -114,6 +115,7 @@ const html = `<!doctype html>
     <li><b>Firmar los envíos de una bóveda Bitcoin multifirma</b>, como una de sus llaves.</li>
     <li><b>Ser una de las llaves de una multifirma EVM</b> (Ethereum, Arbitrum, Base), o la única: una multifirma 1 de 1.</li>
     <li><b>Ser una cuenta Bitcoin de firma única</b>, en la que este móvil es la única llave.</li>
+    <li><b>Ver las direcciones que salen de tu frase</b>, sin conexión, para comprobar que es la de tu monedero.</li>
   </ul>
   <p class="muted">Cada uso tiene su sección, que aparece al abrir la llave.</p>
 </section>
@@ -329,6 +331,34 @@ const html = `<!doctype html>
   </div>
 </section>
 
+<section class="card" id="sec-addrs" hidden>
+  <h2>6 · Ver mis direcciones</h2>
+  <p class="muted">Para comprobar, sin conexión y sin meter dinero en ningún sitio, que esta frase es la de tu monedero: compara estas direcciones con las que ves en Mucho Wallet. Las cuentas van numeradas igual que allí.</p>
+  <div class="tabs grid2">
+    <button id="ad-evm" type="button">Ethereum y redes EVM</button>
+    <button id="ad-btc" type="button">Bitcoin</button>
+  </div>
+  <div id="ad-btc-opts" hidden>
+    <p class="muted" style="margin-bottom:4px">Tipo de dirección</p>
+    <div class="tabs grid2">
+      <button id="ad-84" type="button">Nativa (bc1q…)</button>
+      <button id="ad-86" type="button">Taproot (bc1p…)</button>
+      <button id="ad-49" type="button">Anidada (3…)</button>
+      <button id="ad-44" type="button">Legacy (1…)</button>
+    </div>
+    <label for="ad-acct">Número de cuenta</label>
+    <span class="row"><button class="sec" id="ad-minus" type="button" aria-label="Cuenta anterior">−</button><input id="ad-acct" type="number" inputmode="numeric" min="1" max="1000" value="1" autocomplete="off"><button class="sec" id="ad-plus" type="button" aria-label="Cuenta siguiente">+</button></span>
+    <div class="tabs grid2" style="margin-top:8px">
+      <button id="ad-b0" type="button">Recepción</button>
+      <button id="ad-b1" type="button">Cambio</button>
+    </div>
+  </div>
+  <p class="muted" id="ad-note"></p>
+  <ol class="addrs" id="ad-list"></ol>
+  <button class="sec" id="ad-more" type="button">Ver 10 más</button>
+  <p class="muted">Lo que no sale aquí: las direcciones de depósito de un solo uso (no salen de una ruta: las recupera la herramienta de rescate del monedero), Solana (de momento) y las cuentas de un monedero importado con la ruta de otra app, como Ledger Live.</p>
+</section>
+
 <section class="card" id="plantilla-card">
   <h2>Plantilla en blanco para el SeedQR</h2>
   <p class="muted">Ábrela en un ordenador e imprímela: cuadrículas de 25×25 (12 palabras) y 29×29 (24 palabras) con sus coordenadas. Sirven también las plantillas de SeedSigner.</p>
@@ -340,7 +370,7 @@ const html = `<!doctype html>
   </div>
 </section>
 
-<p class="muted">MuchoSigner, el firmador sin conexión de Mucho Wallet. Bóvedas multifirma P2WSH (ruta 48'/0'/0'/2'), multifirmas EVM (m/44'/60'/0'/0/0) y cuentas Bitcoin de firma única: nativa (m/84'), Taproot (m/86'), anidada (m/49') y Legacy (m/44', solo para vigilarla), en la cuenta que elijas. El código va entero dentro de este fichero.</p>
+<p class="muted">MuchoSigner, el firmador sin conexión de Mucho Wallet. Bóvedas multifirma P2WSH (ruta 48'/0'/0'/2'), multifirmas EVM (m/44'/60'/0'/0/0) y cuentas Bitcoin de firma única: nativa (m/84'), Taproot (m/86'), anidada (m/49') y Legacy (m/44', solo para vigilarla), en la cuenta que elijas. Y la lista de direcciones de tu frase, con la numeración de cuentas de Mucho Wallet. El código va entero dentro de este fichero.</p>
 </main>
 <script>${js}</script>
 </body>
