@@ -8,6 +8,11 @@
  * en un navegador anterior el script entero moría antes de enganchar un solo
  * botón: se veía la página y nada funcionaba.
  *
+ * Y en el mismo móvil, con eso arreglado, saltó `Object.fromEntries` (Chrome
+ * 73: su navegador era Chrome 71). Desde entonces `navegadorViejo.test.ts`
+ * monta el fichero en un Chromium al que se le QUITA todo lo posterior a
+ * Chrome 67 y recorre la llave entera: no se vuelve a ir método a método.
+ *
  * Aquí van los métodos del lenguaje que usa el paquete y que llegaron tarde, y
  * nada más. La SINTAXIS nueva (`?.`, `??`…) la rebaja esbuild con el `target`
  * de `scripts/muchosignerBundle.ts`. El suelo de verdad es `BigInt` (Chrome 67,
@@ -20,6 +25,46 @@
 function define(target: object, name: string, value: unknown): void {
   if (name in target) return;
   Object.defineProperty(target, name, { value, writable: true, configurable: true, enumerable: false });
+}
+
+// Chrome 73. Caso real: el MISMO socio, con el arreglo de hasOwn puesto, se
+// paró aquí (Redmi Note 8 Pro, navegador Mi sobre Chrome 71).
+define(Object, "fromEntries", function fromEntries(entries: Iterable<readonly [PropertyKey, unknown]>) {
+  const out: Record<PropertyKey, unknown> = {};
+  for (const [k, v] of entries) out[k as string] = v;
+  return out;
+});
+
+// Chrome 69.
+function flatten(arr: ArrayLike<unknown>, depth: number, out: unknown[]): unknown[] {
+  for (let i = 0; i < arr.length; i++) {
+    if (!(i in (arr as object))) continue;
+    const v = arr[i];
+    if (depth > 0 && Array.isArray(v)) flatten(v, depth - 1, out);
+    else out.push(v);
+  }
+  return out;
+}
+define(Array.prototype, "flat", function flat(this: ArrayLike<unknown>, depth?: number) {
+  return flatten(this, depth === undefined ? 1 : Math.trunc(Number(depth)) || 0, []);
+});
+define(Array.prototype, "flatMap", function flatMap<T, U>(
+  this: ArrayLike<T>, fn: (v: T, i: number, a: ArrayLike<T>) => U | U[], thisArg?: unknown,
+) {
+  const mapped: unknown[] = [];
+  for (let i = 0; i < this.length; i++) if (i in (this as object)) mapped.push(fn.call(thisArg, this[i], i, this));
+  return flatten(mapped, 1, []);
+});
+
+// Chrome 70.
+if (!("description" in Symbol.prototype)) {
+  Object.defineProperty(Symbol.prototype, "description", {
+    configurable: true,
+    get(this: symbol) {
+      const m = /^Symbol\(([\s\S]*)\)$/.exec(this.toString());
+      return m ? m[1] : undefined;
+    },
+  });
 }
 
 define(Object, "hasOwn", function hasOwn(obj: object, key: PropertyKey): boolean {

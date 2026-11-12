@@ -37,6 +37,8 @@ const html = `<!doctype html>
    real: navegador Mi de un Xiaomi viejo, 12-11-2026). ES5 a propósito: tiene
    que funcionar justo donde lo demás falla. */
 (function(){
+  /* globalThis llegó en Chrome 71; el paquete lo da por hecho al cargar. */
+  if(typeof globalThis==="undefined"){window.globalThis=window;}
   var shown=false;
   function show(msg){
     if(shown)return;shown=true;
