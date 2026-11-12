@@ -22,13 +22,21 @@ export function muchosignerBuildOptions(root: string): BuildOptions & { write: f
 
   return {
     entryPoints: [resolve(root, "client/src/muchosigner/standalone.ts")],
-    inject: [resolve(root, "client/src/muchosigner/nodeShim.ts")],
+    // Primero los polyfills de navegador viejo: tienen que estar antes de que
+    // se evalúe ningún módulo (noble llama a Object.hasOwn al cargar).
+    inject: [
+      resolve(root, "client/src/muchosigner/legacyPolyfills.ts"),
+      resolve(root, "client/src/muchosigner/nodeShim.ts"),
+    ],
     bundle: true,
     write: false,
     metafile: true,
     format: "iife",
     platform: "browser",
-    target: ["es2020"],
+    // Móviles VIEJOS (es para lo que sirve): la sintaxis se rebaja hasta
+    // Chrome 67 / Safari 14, el primer navegador con BigInt, sin el que no se
+    // puede firmar. Con «es2020» el `?.` dejaba muerto un Chrome < 80.
+    target: ["chrome67", "firefox68", "safari14"],
     minify: true,
     legalComments: "none",
     alias: { "@shared": resolve(root, "shared"), "@": resolve(root, "client/src"), ...nodeAliases },

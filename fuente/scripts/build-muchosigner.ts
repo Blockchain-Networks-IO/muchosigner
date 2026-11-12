@@ -31,6 +31,37 @@ const html = `<!doctype html>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; media-src blob: mediastream:; connect-src 'none'">
 <title>MuchoSigner · firmador sin conexión</title>
+<script>
+/* Si el navegador no puede con MuchoSigner, que se VEA. Sin esto, un fallo al
+   cargar dejaba la página entera sin responder y nadie sabía por qué (caso
+   real: navegador Mi de un Xiaomi viejo, 12-11-2026). ES5 a propósito: tiene
+   que funcionar justo donde lo demás falla. */
+(function(){
+  var shown=false;
+  function show(msg){
+    if(shown)return;shown=true;
+    function put(){
+      var c=document.createElement("section");c.className="card";c.id="boot-error";
+      c.style.borderColor="#b91c1c";
+      var h=document.createElement("h2");h.textContent="Este navegador no puede abrir MuchoSigner";
+      var p=document.createElement("p");p.className="bad";
+      p.textContent="Los botones no van a funcionar aquí. Actualiza este navegador desde la tienda de aplicaciones (con el móvil conectado, antes de poner tu frase) o abre el fichero con otro navegador del móvil. Si sigue igual, manda una foto de este recuadro al equipo.";
+      var d=document.createElement("p");d.className="muted";
+      d.textContent="Detalle: "+msg+" · "+navigator.userAgent;
+      c.appendChild(h);c.appendChild(p);c.appendChild(d);
+      var m=document.querySelector("main");if(m)m.insertBefore(c,m.firstChild);else document.body.appendChild(c);
+      window.scrollTo(0,0);
+    }
+    if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",put);else put();
+  }
+  window.__muchosignerBootError=show;
+  if(typeof BigInt!=="function")show("falta BigInt (navegador demasiado antiguo)");
+  window.addEventListener("error",function(e){
+    if(window.__muchosignerReady)return;
+    show((e&&e.message)||"error al cargar");
+  });
+})();
+</script>
 <style>
   :root{color-scheme:light dark;--bg:#f6f7f9;--card:#fff;--fg:#14161a;--muted:#5f6368;--line:#e2e5e9;--ok:#047857;--bad:#b91c1c;--warn:#b45309;--acc:#1d4ed8}
   @media(prefers-color-scheme:dark){:root{--bg:#0f1115;--card:#181b22;--fg:#e8eaed;--muted:#9aa0a6;--line:#2a2f3a;--ok:#34d399;--bad:#f87171;--warn:#fbbf24;--acc:#60a5fa}}
@@ -394,7 +425,8 @@ const html = `<!doctype html>
 
 <p class="muted">MuchoSigner, el firmador sin conexión de Mucho Wallet. Bóvedas multifirma P2WSH (ruta 48'/0'/0'/2'), multifirmas EVM (m/44'/60'/0'/0/0) y cuentas Bitcoin de firma única: nativa (m/84'), Taproot (m/86'), anidada (m/49') y Legacy (m/44', solo para vigilarla), en la cuenta que elijas. Y la lista de direcciones de tu frase, con la numeración de cuentas de Mucho Wallet. El código va entero dentro de este fichero.</p>
 </main>
-<script>${js}</script>
+<script>${js}
+window.__muchosignerReady=true;</script>
 </body>
 </html>
 `;
