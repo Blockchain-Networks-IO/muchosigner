@@ -15,9 +15,18 @@ en ningún sitio, para ver que es la buena.
    otras direcciones).
 2. Baja a «6 · Ver mis direcciones».
 3. Elige qué quieres ver:
-   - **Ethereum y redes EVM**: una fila por cuenta. La Cuenta N de Mucho
-     Wallet es la ruta `m/44'/60'/0'/0/N−1`, la de MetaMask. Es la misma
-     dirección en Ethereum, Arbitrum, Base y el resto de redes EVM.
+   - **Ethereum y redes EVM**: una fila por cuenta, y la **ruta** de la app
+     con la que creaste la frase. Cada app pone el número de cuenta en un
+     sitio distinto, así que la misma frase da otras direcciones:
+     - **Mucho Wallet · MetaMask** (también Rabby y Trust): la Cuenta N es
+       `m/44'/60'/0'/0/N−1`.
+     - **Ledger Live**: la Cuenta N es `m/44'/60'/N−1'/0/0`. La Cuenta 1
+       coincide con la de MetaMask; las demás, no.
+     - **MyEtherWallet antiguo** (y la app de Ledger para Chrome): la
+       Cuenta N es `m/44'/60'/0'/N−1`.
+
+     La dirección es la misma en Ethereum, Arbitrum, Base y el resto de
+     redes EVM.
    - **Bitcoin**: el tipo de dirección (nativa `bc1q…`, Taproot `bc1p…`,
      anidada `3…` o Legacy `1…`), el número de cuenta y si quieres las de
      **recepción** (las que das para cobrar) o las de **cambio** (a donde
@@ -33,6 +42,3 @@ Si las direcciones coinciden con las de tu monedero, la frase es la buena.
   una ruta, sino de una firma. Las recupera la herramienta de rescate del
   monedero.
 - **Solana**, de momento.
-- Las cuentas de un monedero importado con la **ruta de otra aplicación**
-  (Ledger Live, la ruta antigua de algunos monederos): con la misma frase dan
-  otras direcciones.

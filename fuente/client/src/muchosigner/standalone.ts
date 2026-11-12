@@ -86,6 +86,7 @@ import {
   type PhraseEntry,
 } from "./phraseEntry";
 import { ADDRESSES_MAX, ADDRESSES_PAGE, btcAddresses, evmAccountAddresses } from "./addresses";
+import { EVM_SCHEMES, type EvmPathScheme } from "@shared/wallet/evmDerivation";
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 const esc = (t: string) =>
@@ -112,7 +113,7 @@ const state: {
   singleAccountIndex: number;
   pendingSingle?: { psbt: Uint8Array; review: SinglePsbtReview };
   /** «Ver mis direcciones»: qué red, tipo, cuenta y rama, y cuántas se ven. */
-  addr: { net: "evm" | "btc"; purpose: SinglePurpose; accountIndex: number; branch: 0 | 1; shown: number };
+  addr: { net: "evm" | "btc"; scheme: EvmPathScheme; purpose: SinglePurpose; accountIndex: number; branch: 0 | 1; shown: number };
   /** La frase que se está metiendo palabra a palabra (memoria; se vacía al abrir o cerrar). */
   entry: PhraseEntry;
   /** Lo que queda de la última palabra que se completó sola (ver `absorbCarry`). */
@@ -130,7 +131,7 @@ const state: {
   words: 24,
   singlePurpose: 84,
   singleAccountIndex: 0,
-  addr: { net: "evm", purpose: 84, accountIndex: 0, branch: 0, shown: ADDRESSES_PAGE },
+  addr: { net: "evm", scheme: "metamask", purpose: 84, accountIndex: 0, branch: 0, shown: ADDRESSES_PAGE },
   entry: newEntry(12),
   carry: "",
 };
@@ -506,7 +507,7 @@ function openSigner(mnemonic: string) {
   openEvm();
   show("sec-single");
   renderSingleChoice();
-  state.addr = { net: "evm", purpose: 84, accountIndex: 0, branch: 0, shown: ADDRESSES_PAGE };
+  state.addr = { net: "evm", scheme: "metamask", purpose: 84, accountIndex: 0, branch: 0, shown: ADDRESSES_PAGE };
   show("sec-addrs");
   renderAddrs();
 }
@@ -1020,6 +1021,13 @@ function confirmSingleSign() {
 // ─── 6 · Ver mis direcciones ─────────────────────────────────────────────────
 
 /** Cambia lo elegido y vuelve a empezar la lista por la primera página. */
+/** Qué es cada esquema EVM, dicho por la app que lo usa (los mismos de `evmDerivation.ts`). */
+const EVM_SCHEME_NOTES: Record<EvmPathScheme, string> = {
+  metamask: "La de Mucho Wallet, MetaMask, Rabby y Trust: la Cuenta N es la ruta m/44'/60'/0'/0/N−1.",
+  ledgerLive: "La de Ledger Live: la Cuenta N es la ruta m/44'/60'/N−1'/0/0. La Cuenta 1 coincide con la de MetaMask; las demás, no.",
+  legacy: "La antigua de MyEtherWallet y de la app de Ledger para Chrome: la Cuenta N es la ruta m/44'/60'/0'/N−1.",
+};
+
 function setAddr(next: Partial<typeof state.addr>) {
   state.addr = { ...state.addr, ...next, shown: ADDRESSES_PAGE };
   renderAddrs();
@@ -1031,13 +1039,15 @@ function renderAddrs() {
   $("ad-evm").classList.toggle("on", a.net === "evm");
   $("ad-btc").classList.toggle("on", a.net === "btc");
   show("ad-btc-opts", a.net === "btc");
+  show("ad-evm-opts", a.net === "evm");
+  for (const sc of EVM_SCHEMES) $(`ad-sch-${sc}`).classList.toggle("on", sc === a.scheme);
   for (const t of SINGLE_TYPES) $(`ad-${t.purpose}`).classList.toggle("on", t.purpose === a.purpose);
   $("ad-b0").classList.toggle("on", a.branch === 0);
   $("ad-b1").classList.toggle("on", a.branch === 1);
   $<HTMLInputElement>("ad-acct").value = String(a.accountIndex + 1);
   $("ad-note").textContent =
     a.net === "evm"
-      ? "La Cuenta N de Mucho Wallet es la ruta m/44'/60'/0'/0/N−1, la de MetaMask. Es la misma dirección en Ethereum, Arbitrum, Base y el resto de redes EVM."
+      ? EVM_SCHEME_NOTES[a.scheme] + " Es la misma dirección en Ethereum, Arbitrum, Base y el resto de redes EVM."
       : `${accountLabel(a.purpose, a.accountIndex)}: ruta m/${a.purpose}'/0'/${a.accountIndex}'. ` +
         (a.branch === 0
           ? "Recepción: las direcciones para cobrar. El monedero estrena una en cada cobro, así que la tuya puede no ser la primera."
@@ -1045,7 +1055,7 @@ function renderAddrs() {
   if (!sg) return;
   const list =
     a.net === "evm"
-      ? evmAccountAddresses(sg.root, 0, a.shown)
+      ? evmAccountAddresses(sg.root, 0, a.shown, a.scheme)
       : btcAddresses(sg.root, a.purpose, a.accountIndex, a.branch, 0, a.shown);
   $("ad-list").innerHTML = list
     .map(x => `<li><span class="muted">${a.net === "evm" ? `Cuenta ${x.n}` : `n.º ${x.n}`} · ${esc(x.path)}</span><code>${esc(x.address)}</code></li>`)
@@ -1203,6 +1213,7 @@ function init() {
   };
   $("ad-evm").onclick = () => setAddr({ net: "evm" });
   $("ad-btc").onclick = () => setAddr({ net: "btc" });
+  for (const sc of EVM_SCHEMES) $(`ad-sch-${sc}`).onclick = () => setAddr({ scheme: sc });
   for (const t of SINGLE_TYPES) $(`ad-${t.purpose}`).onclick = () => setAddr({ purpose: t.purpose });
   $("ad-b0").onclick = () => setAddr({ branch: 0 });
   $("ad-b1").onclick = () => setAddr({ branch: 1 });

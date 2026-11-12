@@ -338,6 +338,14 @@ const html = `<!doctype html>
     <button id="ad-evm" type="button">Ethereum y redes EVM</button>
     <button id="ad-btc" type="button">Bitcoin</button>
   </div>
+  <div id="ad-evm-opts" hidden>
+    <p class="muted" style="margin-bottom:4px">Ruta de las cuentas (la de la app con la que creaste la frase)</p>
+    <div class="tabs grid2">
+      <button id="ad-sch-metamask" type="button">Mucho Wallet · MetaMask</button>
+      <button id="ad-sch-ledgerLive" type="button">Ledger Live</button>
+      <button id="ad-sch-legacy" type="button">MyEtherWallet antiguo</button>
+    </div>
+  </div>
   <div id="ad-btc-opts" hidden>
     <p class="muted" style="margin-bottom:4px">Tipo de dirección</p>
     <div class="tabs grid2">
@@ -356,7 +364,7 @@ const html = `<!doctype html>
   <p class="muted" id="ad-note"></p>
   <ol class="addrs" id="ad-list"></ol>
   <button class="sec" id="ad-more" type="button">Ver 10 más</button>
-  <p class="muted">Lo que no sale aquí: las direcciones de depósito de un solo uso (no salen de una ruta: las recupera la herramienta de rescate del monedero), Solana (de momento) y las cuentas de un monedero importado con la ruta de otra app, como Ledger Live.</p>
+  <p class="muted">Lo que no sale aquí: las direcciones de depósito de un solo uso (no salen de una ruta: las recupera la herramienta de rescate del monedero) y Solana (de momento).</p>
 </section>
 
 <section class="card" id="plantilla-card">
