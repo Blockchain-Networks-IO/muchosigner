@@ -60,6 +60,7 @@ import {
   SINGLE_MAX_ACCOUNT_INDEX,
   SINGLE_TYPES,
   accountLabel,
+  allAccountsBundle,
   deriveSingleSig,
   reviewSinglePsbt,
   signSinglePsbt,
@@ -70,6 +71,7 @@ import {
   type SinglePurpose,
   type SingleSig,
 } from "./single";
+import { BUNDLE_MAX_ACCOUNTS } from "@shared/wallet/btcAccountsBundle";
 import {
   absorbCarry,
   acceptTyped,
@@ -562,8 +564,10 @@ function closeSigner() {
   stopQr("evmqr");
   stopQr("safesigqr");
   stopQr("singleqr");
+  stopQr("allqr");
   stopQr("singlesignedqr");
   show("singleqr-wrap", false);
+  show("allqr-wrap", false);
   show("single-review", false);
   show("single-signed", false);
   show("sec-single", false);
@@ -938,9 +942,29 @@ function showSingleAccount() {
   const acc = singleAccount(sg, state.singlePurpose, state.singleAccountIndex);
   paintQr("singleqr", () => acc.descriptor, false);
   $("singledesc").textContent = acc.descriptor;
+  $("singleslipname").textContent = acc.slip.prefix;
+  $("singleslip").textContent = acc.slip.key;
+  $("singleslipnote").textContent =
+    acc.purpose === 86
+      ? "Taproot no tiene un prefijo propio: va como xpub y muchas apps la leerían como Legacy. Para Taproot, usa el descriptor de arriba."
+      : "";
   $("singlefirst").textContent = acc.firstAddress;
   $("singlefp").textContent = sg.fingerprint;
   show("singleqr-wrap");
+}
+
+/** QR que va pasando con los cuatro tipos de las primeras N cuentas. */
+function showAllAccounts() {
+  const sg = state.single;
+  if (!sg) return;
+  const n = Math.min(BUNDLE_MAX_ACCOUNTS, Math.max(1, Math.round(Number($<HTMLInputElement>("all-acct").value) || 5)));
+  $<HTMLInputElement>("all-acct").value = String(n);
+  const parts = allAccountsBundle(sg, n);
+  let i = 0;
+  paintQr("allqr", () => parts[i++ % parts.length], true);
+  $("allfp").textContent = sg.fingerprint;
+  $("all-n").textContent = `${n} cuenta(s) × 4 tipos, en ${parts.length} partes.`;
+  show("allqr-wrap");
 }
 
 const ownText = (o: SingleOwn) =>
@@ -1199,6 +1223,11 @@ function init() {
   acct.onchange = () => setSingleAccount(Number(acct.value) || 1);
   renderSingleChoice();
   $("show-single").onclick = showSingleAccount;
+  $("show-all").onclick = showAllAccounts;
+  $("all-done").onclick = () => {
+    stopQr("allqr");
+    show("allqr-wrap", false);
+  };
   $("scan-single").onclick = scanSinglePsbt;
   $("single-ok").onclick = confirmSingleSign;
   $("single-cancel").onclick = () => {

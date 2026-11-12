@@ -36,6 +36,22 @@ por separado.
 | Monederos de hardware › añadir a mano › **Leer con la cámara**, apuntando al QR del móvil. El tipo lo lee del propio QR. | |
 | Comprueba que la huella y la primera dirección del ordenador son las mismas que enseña el móvil. | |
 
+## Todas tus cuentas de una vez
+
+Cada cuenta y cada tipo de dirección tiene su propia clave pública: la de la
+cuenta 1 no deja ver la cuenta 2. Si tienes saldo en varias:
+
+| Ordenador | Móvil |
+|---|---|
+| | En la sección 5, **Todas mis cuentas, de una vez**: elige hasta qué cuenta (5 por defecto) y pulsa **Enseñar todas mis cuentas**. Sale un QR que va pasando. |
+| En **Monederos de hardware** › añadir a mano, **Leer con la cámara** y apunta al QR hasta que diga que las tiene todas. Comprueba cuáles tienen movimientos y guarda solo esas. | |
+
+Debajo de cada cuenta tienes también su clave suelta como la piden otras
+apps: `zpub` (nativa), `ypub` (anidada) o `xpub` (Legacy). Taproot no tiene
+prefijo propio: para Taproot, usa el descriptor. Quien tenga una de estas
+claves ve todas las direcciones y el saldo de esa cuenta, aunque no puede
+gastar.
+
 ## Recibir
 
 Usa las direcciones que te da el ordenador para esa cuenta. Antes de recibir

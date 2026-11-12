@@ -42,6 +42,7 @@ import {
   toHex,
   type ReviewedOutput,
 } from "./core";
+import { BUNDLE_MAX_ACCOUNTS, bundleParts, slip132PrefixFor, withPrefix, type ExtendedKeyPrefix } from "@shared/wallet/btcAccountsBundle";
 
 /** Tipos de dirección (el «purpose» de la ruta). */
 export type SinglePurpose = 84 | 49 | 86 | 44;
@@ -93,6 +94,8 @@ export interface SingleAccount {
   descriptor: string;
   /** Primera dirección de recepción, para comprobarla en el monedero. */
   firstAddress: string;
+  /** La clave suelta con el prefijo que piden otras apps (zpub en la nativa, ypub en la anidada). */
+  slip: { prefix: ExtendedKeyPrefix; key: string };
 }
 
 export interface SingleSig extends SingleAccount {
@@ -147,9 +150,23 @@ export function singleAccount(s: Pick<SingleSig, "root" | "fingerprint">, purpos
     xpub,
     descriptor: wrapDescriptor(purpose, `[${s.fingerprint}/${originOf(purpose, accountIndex)}]${xpub}/<0;1>/*`),
     firstAddress: paymentFor(first, purpose).address!,
+    slip: { prefix: slip132PrefixFor(purpose), key: withPrefix(xpub, slip132PrefixFor(purpose)) },
   };
   byRoot.set(key, acc);
   return acc;
+}
+
+/**
+ * «Todas mis cuentas Bitcoin»: los cuatro tipos de cada una de las primeras
+ * `count` cuentas, como descriptores con origen, partidos para un QR que va
+ * pasando (`@shared/wallet/btcAccountsBundle`). Sin red no se sabe cuáles se
+ * usaron: el monedero lo mira y guarda solo las que tienen historial.
+ */
+export function allAccountsBundle(s: Pick<SingleSig, "root" | "fingerprint">, count: number): string[] {
+  const n = Math.min(BUNDLE_MAX_ACCOUNTS, Math.max(1, Math.round(count)));
+  const descriptors: string[] = [];
+  for (let i = 0; i < n; i++) for (const t of SINGLE_TYPES) descriptors.push(singleAccount(s, t.purpose, i).descriptor);
+  return bundleParts(descriptors);
 }
 
 /**

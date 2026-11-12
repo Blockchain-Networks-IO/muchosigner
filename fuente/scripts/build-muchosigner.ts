@@ -312,6 +312,20 @@ const html = `<!doctype html>
     <p><code id="singlefirst"></code></p>
     <div id="singleqr"></div>
     <p><code id="singledesc"></code></p>
+    <p class="muted">La misma clave suelta, como la piden otras apps (BlueWallet, Electrum, Sparrow…), en formato <b id="singleslipname"></b>:</p>
+    <p><code id="singleslip"></code></p>
+    <p class="muted" id="singleslipnote"></p>
+    <p class="warn">Quien tenga esta clave ve TODAS las direcciones y el saldo de esta cuenta, aunque no puede gastar. Dásela solo a apps tuyas.</p>
+  </div>
+  <h3>Todas mis cuentas, de una vez</h3>
+  <p class="muted">Cada cuenta y cada tipo de dirección tiene su propia clave pública: la de la cuenta 1 no deja ver la cuenta 2. Si tienes saldo repartido, enseña aquí todas a la vez: los cuatro tipos de las primeras cuentas, en un QR que va pasando. Este móvil no tiene conexión y no sabe cuáles usaste; el monedero lo mira y guarda solo las que tienen movimientos.</p>
+  <label for="all-acct">Cuántas cuentas (de la 1 a la que digas)</label>
+  <input id="all-acct" type="number" inputmode="numeric" min="1" max="20" value="5" autocomplete="off">
+  <button class="sec" id="show-all" type="button">Enseñar todas mis cuentas</button>
+  <div id="allqr-wrap" class="center" hidden>
+    <p class="muted">En el monedero, en «Monederos de hardware» › añadir a mano, pulsa «Leer con la cámara» y apunta a este QR hasta que diga que las tiene todas. Huella: <b id="allfp"></b>. <span id="all-n"></span></p>
+    <div id="allqr"></div>
+    <button class="sec" id="all-done" type="button">Ya lo ha leído</button>
   </div>
   <h3>Firmar un envío</h3>
   <p class="muted">En el monedero, en esa cuenta, pulsa «Enviar», prepara el envío y pulsa el icono del QR. Léelo aquí: verás a dónde va el dinero antes de firmar. Sirve para cualquier tipo (salvo Legacy) y cuenta de tu frase: el móvil lo deduce del propio envío.</p>
