@@ -157,6 +157,10 @@ const html = `<!doctype html>
   <p class="bad">Este móvil tiene conexión. Un firmador no debe conectarse nunca: activa el modo avión, quita la wifi y saca la SIM antes de escribir o crear una frase.</p>
 </div>
 
+<div class="card" id="content-warn" hidden>
+  <p class="warn">Has abierto el fichero desde el gestor de archivos y así el navegador no suele dejar usar la cámara. Ábrelo de esta forma: abre <b>Chrome</b> (con permiso de cámara y de archivos en los ajustes del móvil) y escribe a mano en su barra de direcciones <code>file:///sdcard/Download/muchosigner.html</code> (o la carpeta donde lo guardaste, por ejemplo <code>file:///sdcard/muchosigner.html</code>). Si lo abres con «Abrir con… Chrome» desde el gestor de archivos, tampoco vale.</p>
+</div>
+
 <section class="card">
   <h2>1 · Tu llave</h2>
   <div id="key-new">

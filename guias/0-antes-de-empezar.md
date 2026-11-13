@@ -25,9 +25,9 @@ códigos QR.
 
 1. Restablécelo de fábrica.
 2. Quítale la SIM, la wifi y el Bluetooth, y ponlo en modo avión.
-3. El navegador: en los Xiaomi, el **navegador Mi** (probado en un Xiaomi 12
-   Pro). **Chrome no deja usar la cámara** a un fichero abierto desde el
-   móvil. Otras marcas no están probadas todavía.
+3. El navegador: **Chrome**, con permiso de **cámara** y de **archivos**
+   (Ajustes › Aplicaciones › Chrome › Permisos). Lo importante es CÓMO se abre
+   el fichero (ver «Abrir el fichero en el móvil», más abajo).
 
 ## Descargar y comprobar el fichero
 
@@ -41,8 +41,36 @@ códigos QR.
    - **Mac:** `shasum -a 256 muchosigner.html`
    - **Windows (PowerShell):** `Get-FileHash muchosigner.html -Algorithm SHA256`
    - **Linux:** `sha256sum muchosigner.html`
-3. Pásalo al móvil (por cable, por ejemplo) y ábrelo con el navegador, ya en
-   modo avión.
+3. Pásalo al móvil (por cable, por ejemplo), a la carpeta **Download** o a la
+   raíz del almacenamiento.
+
+## Abrir el fichero en el móvil
+
+Ya en modo avión, **abre Chrome y escribe a mano en su barra de direcciones**:
+
+```
+file:///sdcard/Download/muchosigner.html
+```
+
+(o `file:///sdcard/muchosigner.html` si lo dejaste en la raíz). Así la cámara
+funciona a la primera.
+
+**No lo abras desde el gestor de archivos**, ni siquiera eligiendo Chrome en
+«Abrir con…»: Android lo entrega como `content://…` y los navegadores no dan la
+cámara a esa dirección. Si lo abres así, MuchoSigner lo avisa arriba en
+amarillo.
+
+Lo que se ha probado con socios:
+
+| Móvil | Cómo se abrió | Cámara |
+|---|---|---|
+| Redmi Note 8 Pro (Android 9) | Chrome, escribiendo `file:///sdcard/muchosigner.html` | ✅ |
+| Redmi Note 8 Pro | Navegador Mi o Chrome desde el gestor de archivos (`content://`) | ❌ |
+| Redmi Note 8 Pro | Firefox | ❌ no sale en «Abrir con…» y bloquea `file:///` |
+| Xiaomi 12 Pro | Navegador Mi desde el gestor de archivos | ✅ |
+
+Si el móvil se llegó a conectar a una red mientras probabas, lo prudente es
+restablecerlo de fábrica y empezar otra vez sin conexión desde el principio.
 
 Si la huella no coincide, **no escribas tu frase en ese fichero**.
 

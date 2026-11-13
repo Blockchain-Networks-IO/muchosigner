@@ -166,8 +166,19 @@ function stopQr(boxId: string) {
 
 let camStop: (() => void) | null = null;
 
+/**
+ * Abierto desde el gestor de archivos, Android lo entrega como `content://` y
+ * los navegadores no dan la cámara a esa dirección. Lo que SÍ funciona
+ * (probado por un socio el 13-11-2026, Redmi Note 8 Pro): abrir Chrome y
+ * escribir a mano `file:///sdcard/…/muchosigner.html`. Se dice al abrir, no
+ * cuando la cámara ya ha fallado.
+ */
+const OPENED_AS_CONTENT = location.protocol === "content:";
+const CAMERA_HOW_TO_OPEN =
+  "Abre Chrome (con permiso de cámara y de archivos en los ajustes del móvil) y escribe a mano en su barra de direcciones file:///sdcard/Download/muchosigner.html (o la carpeta donde lo guardaste). Abrirlo desde el gestor de archivos no vale, ni eligiendo Chrome.";
+
 const CAMERA_NO_ANSWER =
-  "El navegador no contesta al pedir la cámara. Mira si arriba o abajo ha salido un aviso para permitirla. Si no, da permiso de cámara al navegador en los ajustes del móvil (Ajustes › Aplicaciones › el navegador › Permisos › Cámara), cierra el navegador del todo y vuelve a abrir el fichero.";
+  "El navegador no contesta al pedir la cámara. Mira si arriba o abajo ha salido un aviso para permitirla. Si no: abre Chrome (con permiso de cámara y de archivos en los ajustes del móvil) y escribe a mano en su barra file:///sdcard/Download/muchosigner.html (o la carpeta donde lo guardaste). Abrirlo desde el gestor de archivos no vale.";
 
 /** La cámara trasera; si el navegador no entiende esa petición, cualquiera. */
 async function openStream(): Promise<MediaStream> {
@@ -192,7 +203,7 @@ async function openCamera(boxId: string, onText: (text: string, bytes: number[])
   const status = box.querySelector(".cam-status") as HTMLElement;
   (box.querySelector("button") as HTMLButtonElement).onclick = closeCamera;
   if (!navigator.mediaDevices?.getUserMedia) {
-    status.textContent = "Este navegador no deja usar la cámara aquí. En los Xiaomi funciona con el navegador Mi; en otros móviles prueba con Firefox.";
+    status.textContent = `Este navegador no deja usar la cámara aquí. ${CAMERA_HOW_TO_OPEN}`;
     return;
   }
   // Un navegador viejo puede quedarse SIN contestar al pedir la cámara (sin
@@ -217,7 +228,9 @@ async function openCamera(boxId: string, onText: (text: string, bytes: number[])
     const name = (e as { name?: string })?.name ?? "";
     status.textContent =
       name === "NotAllowedError" || name === "SecurityError"
-        ? "El navegador no ha dejado usar la cámara. Revisa el permiso de cámara del navegador en los ajustes del móvil (Ajustes › Aplicaciones › el navegador › Permisos › Cámara), o prueba con otro (en los Xiaomi, el navegador Mi; si no, Firefox)."
+        ? OPENED_AS_CONTENT
+          ? `El navegador no deja usar la cámara a un fichero abierto desde el gestor de archivos. ${CAMERA_HOW_TO_OPEN}`
+          : `El navegador no ha dejado usar la cámara. Revisa su permiso de cámara en los ajustes del móvil (Ajustes › Aplicaciones › el navegador › Permisos › Cámara). ${CAMERA_HOW_TO_OPEN}`
         : `No se pudo abrir la cámara: ${errText(e)}.`;
     return;
   }
@@ -1147,6 +1160,7 @@ function connectionNotice() {
 
 function init() {
   connectionNotice();
+  show("content-warn", OPENED_AS_CONTENT);
   window.addEventListener("online", connectionNotice);
   window.addEventListener("offline", connectionNotice);
 
