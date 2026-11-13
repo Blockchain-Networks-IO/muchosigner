@@ -166,6 +166,20 @@ function stopQr(boxId: string) {
 
 let camStop: (() => void) | null = null;
 
+const CAMERA_NO_ANSWER =
+  "El navegador no contesta al pedir la cámara. Mira si arriba o abajo ha salido un aviso para permitirla. Si no, da permiso de cámara al navegador en los ajustes del móvil (Ajustes › Aplicaciones › el navegador › Permisos › Cámara), cierra el navegador del todo y vuelve a abrir el fichero.";
+
+/** La cámara trasera; si el navegador no entiende esa petición, cualquiera. */
+async function openStream(): Promise<MediaStream> {
+  try {
+    return await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false });
+  } catch (e) {
+    const name = (e as { name?: string })?.name ?? "";
+    if (name === "NotAllowedError" || name === "SecurityError") throw e;
+    return navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+  }
+}
+
 /**
  * Abre la cámara en `boxId` y entrega cada texto NUEVO que lee. `onText`
  * devuelve true cuando ya tiene lo que necesita (y la cámara se cierra).
@@ -173,7 +187,7 @@ let camStop: (() => void) | null = null;
 async function openCamera(boxId: string, onText: (text: string, bytes: number[]) => boolean) {
   closeCamera();
   const box = $(boxId);
-  box.innerHTML = '<video playsinline muted></video><p class="muted cam-status">Abriendo la cámara…</p><button class="sec" type="button">Cerrar la cámara</button>';
+  box.innerHTML = '<video playsinline muted autoplay></video><p class="muted cam-status">Pidiendo permiso para la cámara…</p><button class="sec" type="button">Cerrar la cámara</button>';
   const video = box.querySelector("video")!;
   const status = box.querySelector(".cam-status") as HTMLElement;
   (box.querySelector("button") as HTMLButtonElement).onclick = closeCamera;
@@ -181,20 +195,49 @@ async function openCamera(boxId: string, onText: (text: string, bytes: number[])
     status.textContent = "Este navegador no deja usar la cámara aquí. En los Xiaomi funciona con el navegador Mi; en otros móviles prueba con Firefox.";
     return;
   }
+  // Un navegador viejo puede quedarse SIN contestar al pedir la cámara (sin
+  // permiso y sin preguntar). Caso real, 13-11-2026: navegador Mi sobre Chrome
+  // 71, «Abriendo la cámara…» para siempre. Se avisa en vez de esperar mudos.
+  let cancelled = false;
+  const slow = window.setTimeout(() => {
+    if (!cancelled) status.textContent = CAMERA_NO_ANSWER;
+  }, 8000);
+  camStop = () => {
+    cancelled = true;
+    clearTimeout(slow);
+    box.innerHTML = "";
+    camStop = null;
+  };
   let stream: MediaStream;
   try {
-    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false });
+    stream = await openStream();
   } catch (e) {
+    clearTimeout(slow);
+    if (cancelled) return;
     const name = (e as { name?: string })?.name ?? "";
     status.textContent =
-      name === "NotAllowedError"
-        ? "El navegador no ha dejado usar la cámara. Revisa el permiso de cámara del navegador en los ajustes del móvil, o prueba con otro (en los Xiaomi, el navegador Mi; si no, Firefox)."
+      name === "NotAllowedError" || name === "SecurityError"
+        ? "El navegador no ha dejado usar la cámara. Revisa el permiso de cámara del navegador en los ajustes del móvil (Ajustes › Aplicaciones › el navegador › Permisos › Cámara), o prueba con otro (en los Xiaomi, el navegador Mi; si no, Firefox)."
         : `No se pudo abrir la cámara: ${errText(e)}.`;
     return;
   }
+  clearTimeout(slow);
+  if (cancelled) {
+    stream.getTracks().forEach(t => t.stop());
+    return;
+  }
   video.srcObject = stream;
-  await video.play().catch(e => console.warn("[muchosigner] play:", errText(e)));
+  // Sin esperar a play(): en navegadores viejos su promesa puede no resolverse
+  // nunca aunque la imagen ya llegue, y la página se quedaba en «Abriendo…».
+  try {
+    const played = video.play();
+    if (played && typeof played.catch === "function") played.catch(e => console.warn("[muchosigner] play:", errText(e)));
+  } catch (e) {
+    console.warn("[muchosigner] play:", errText(e));
+  }
   status.textContent = "Apunta al QR y mantén el móvil quieto.";
+  const opened = Date.now();
+  let warnedNoImage = false;
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d", { willReadFrequently: true })!;
   let last = "";
@@ -209,7 +252,18 @@ async function openCamera(boxId: string, onText: (text: string, bytes: number[])
   };
   const tick = () => {
     if (stopped) return;
+    if (!warnedNoImage && Date.now() - opened > 8000 && !(video.readyState >= 2 && video.videoWidth > 0)) {
+      warnedNoImage = true;
+      const track = stream.getVideoTracks()[0];
+      status.textContent =
+        "La cámara se ha abierto pero no llega imagen. Cierra la cámara y vuelve a abrirla; si sigue igual, cierra el navegador del todo y prueba otra vez. " +
+        `(Detalle: vídeo ${video.readyState}, ${video.videoWidth}×${video.videoHeight}, pista ${track ? track.readyState : "ninguna"})`;
+    }
     if (video.readyState >= 2 && video.videoWidth > 0) {
+      if (warnedNoImage) {
+        warnedNoImage = false;
+        status.textContent = "Apunta al QR y mantén el móvil quieto.";
+      }
       const scale = Math.min(1, 720 / video.videoWidth);
       canvas.width = Math.round(video.videoWidth * scale);
       canvas.height = Math.round(video.videoHeight * scale);
