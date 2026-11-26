@@ -110,6 +110,92 @@ export function mnemonicFromCoins(input: string, words: WordCount = 24): string 
   return entropyToMnemonic(entropy, wordlist);
 }
 
+/**
+ * Número de una palabra en el diccionario BIP-39 inglés, del 1 al 2048 (la
+ * línea de la lista oficial, el que traen las placas de acero). En binario es
+ * este número menos 1: con monedas, las 11 caras/cruces de cada palabra.
+ */
+export function bip39WordNumber(word: string): number {
+  const i = wordlist.indexOf(word.trim().toLowerCase());
+  if (i < 0) throw new Error(`«${word}» no es una palabra de la lista BIP-39.`);
+  return i + 1;
+}
+
+// ─── Passphrase con dados o monedas ──────────────────────────────────────────
+
+/**
+ * Passphrase de palabras BIP-39 elegidas por azar FÍSICO: 6 palabras son 66
+ * bits y 7 son 77. No es una frase BIP-39 (no lleva suma de control): cada
+ * palabra son 11 bits, sin más. La passphrase son las palabras en minúsculas
+ * TODAS JUNTAS, sin espacios («horrorreplaceswarm…»), como se enseña a pasarla
+ * a papel en la lección: un espacio de más o de menos es otra passphrase, otra
+ * llave y otra huella. Las funciones devuelven la LISTA (para enseñar cada
+ * palabra con su número); la passphrase es `joinPassphrase(lista)`.
+ */
+export type PassphraseWords = 6 | 7;
+const PP_BITS_PER_WORD = 11;
+/** Tiradas de dado: log2(6) ≈ 2,585 bits cada una → 26 para 66 bits, 30 para 77. */
+export const PP_DICE_ROLLS: Record<PassphraseWords, number> = { 6: 26, 7: 30 };
+/** Lanzamientos de moneda: 11 por palabra, EXACTOS. */
+export const PP_COIN_FLIPS: Record<PassphraseWords, number> = { 6: 66, 7: 77 };
+
+function wordsFromBits(bits: string): string[] {
+  const out: string[] = [];
+  for (let i = 0; i + PP_BITS_PER_WORD <= bits.length; i += PP_BITS_PER_WORD) {
+    out.push(wordlist[parseInt(bits.slice(i, i + PP_BITS_PER_WORD), 2)]);
+  }
+  return out;
+}
+
+/**
+ * Passphrase a partir de tiradas de dado, con el MISMO método que la frase:
+ * SHA-256 del texto de las tiradas y, de ahí, los primeros 11 bits para la
+ * primera palabra, los 11 siguientes para la segunda… Más tiradas de las
+ * mínimas entran en el hash. Usa tiradas NUEVAS: las de tu frase darían las
+ * mismas palabras con que empieza tu frase.
+ */
+export function passphraseFromDice(input: string, words: PassphraseWords = 7): string[] {
+  const rolls = normalizeDice(input);
+  const need = PP_DICE_ROLLS[words];
+  if (rolls.length < need) {
+    throw new Error(`Faltan tiradas: llevas ${rolls.length} y hacen falta al menos ${need}.`);
+  }
+  const hash = sha256(new TextEncoder().encode(rolls));
+  const bits = Array.from(hash, b => b.toString(2).padStart(8, "0")).join("");
+  return wordsFromBits(bits.slice(0, words * PP_BITS_PER_WORD));
+}
+
+/**
+ * Passphrase a partir de lanzamientos de moneda (1 = cara, 0 = cruz): cada
+ * 11 lanzamientos, en orden, son el número de una palabra en binario (más 1).
+ * Sin hash, para poder comprobarlo a mano. Exactamente 66 o 77.
+ */
+export function passphraseFromCoins(input: string, words: PassphraseWords = 7): string[] {
+  const bits = normalizeCoins(input);
+  const need = PP_COIN_FLIPS[words];
+  if (bits.length < need) throw new Error(`Faltan lanzamientos: llevas ${bits.length} de ${need}.`);
+  if (bits.length > need) throw new Error(`Sobran lanzamientos: llevas ${bits.length} y son exactamente ${need}.`);
+  if (/^0+$/.test(bits) || /^1+$/.test(bits)) {
+    throw new Error("Todos los lanzamientos salen iguales: eso no es azar. Lanza la moneda de verdad.");
+  }
+  return wordsFromBits(bits);
+}
+
+/** La passphrase tal como se escribe: palabras en minúsculas, juntas y sin espacios. */
+export function joinPassphrase(words: string[]): string {
+  return words.map(w => w.trim().toLowerCase()).join("");
+}
+
+/**
+ * ¿La passphrase repite el principio de la frase? Pasa si se usan las MISMAS
+ * tiradas o lanzamientos para las dos: sería como no tener passphrase.
+ */
+export function passphraseRepeatsMnemonic(mnemonic: string, words: string[]): boolean {
+  if (words.length < 2) return false;
+  const phrase = mnemonic.trim().toLowerCase().split(/\s+/);
+  return words.every((w, i) => phrase[i] === w.toLowerCase());
+}
+
 /** Frase con el azar del sistema (16 bytes = 12 palabras, 32 = 24). */
 export function mnemonicFromRandom(random: Uint8Array): string {
   if (random.length !== 32 && random.length !== 16) throw new Error("Hacen falta 16 o 32 bytes de azar.");

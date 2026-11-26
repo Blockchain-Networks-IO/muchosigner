@@ -189,7 +189,7 @@ export function descriptorToUr(
 // ─── UR → descriptor ─────────────────────────────────────────────────────────
 
 /** Reconstruye la xpub extendida de un cosigner decodificado. */
-function xpubFromHdKey(key: CryptoHDKey): string {
+export function xpubFromHdKey(key: CryptoHDKey): string {
   const components = key.getOrigin()?.getComponents() ?? [];
   const last = components[components.length - 1];
   const testnet =
@@ -211,7 +211,7 @@ function xpubFromHdKey(key: CryptoHDKey): string {
 }
 
 /** `[huella/48h/0h/0h/2h]` a partir del keypath decodificado. */
-function originOf(key: CryptoHDKey): string {
+export function originOf(key: CryptoHDKey): string {
   const kp = key.getOrigin();
   if (!kp) return "";
   const fp = kp.getSourceFingerprint()?.toString("hex") ?? "";

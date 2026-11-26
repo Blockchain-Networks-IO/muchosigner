@@ -106,6 +106,8 @@ const html = `<!doctype html>
   .ok-t{color:var(--ok)} .bad-t{color:var(--bad)}
   ol.words{columns:2;padding-left:0;list-style:none;font:15px/1.9 ui-monospace,monospace;margin:8px 0}
   ol.words span{display:inline-block;width:2.2em;color:var(--muted)}
+  ol.words li{white-space:nowrap}
+  ol.words em{font-style:normal;font-size:11px;color:var(--muted);margin-left:5px}
   code{font:12px/1.4 ui-monospace,monospace;word-break:break-all}
   .fp{font:700 20px ui-monospace,monospace;letter-spacing:.06em}
   .qr{display:inline-block;background:#fff;padding:10px;border-radius:10px}
@@ -226,6 +228,47 @@ const html = `<!doctype html>
     </div>
     <label>Passphrase (opcional; si la usas, sin ella no hay forma de recuperar tu llave)
       <span class="row"><input id="passphrase" type="password" autocomplete="off" autocapitalize="none" spellcheck="false"><button class="sec" id="pp-toggle" type="button">Ver</button></span></label>
+    <details id="pp-gen">
+      <summary>Crear la passphrase con dados o monedas</summary>
+      <p class="muted">Una passphrase de 6 o 7 palabras de la misma lista BIP-39, elegidas con tu azar y escritas todas juntas, sin espacios. Usa tiradas o lanzamientos NUEVOS, no los de tu frase. Apúntala aparte de tus palabras: quien tenga las dos cosas tiene tu llave, y sin la passphrase no se recupera.</p>
+      <div class="tabs">
+        <button id="ppw-6" type="button">6 palabras</button>
+        <button id="ppw-7" type="button">7 palabras</button>
+      </div>
+      <div class="tabs" style="margin-top:6px">
+        <button id="ppm-dados" type="button">Dados</button>
+        <button id="ppm-monedas" type="button">Monedas</button>
+      </div>
+      <div id="pp-dados">
+        <p class="muted">Tira un dado de 6 caras <b id="pp-dice-need">30</b> veces como mínimo. Las palabras salen igual que la frase: SHA-256 del texto de las tiradas, y de ahí 11 bits por palabra.</p>
+        <label>Tiradas (solo números del 1 al 6; los espacios dan igual)
+          <textarea id="pp-dice" inputmode="numeric" autocomplete="off"></textarea></label>
+        <p id="pp-dice-count" class="muted">0 de 30 tiradas</p>
+      </div>
+      <div id="pp-monedas" hidden>
+        <p class="muted">Lanza una moneda <b id="pp-coins-need">77</b> veces exactas: <b>1 = cara</b>, <b>0 = cruz</b>. Cada 11 lanzamientos son una palabra: su número en binario, más 1. Se puede comprobar a mano.</p>
+        <div class="row" style="margin-top:8px">
+          <button id="pp-coin-1" type="button" style="margin:0">Cara (1)</button>
+          <button id="pp-coin-0" type="button" style="margin:0">Cruz (0)</button>
+          <button class="sec" id="pp-coin-del" type="button" style="margin:0;width:auto">Borrar</button>
+        </div>
+        <label>Lanzamientos
+          <textarea id="pp-coins" inputmode="numeric" autocomplete="off"></textarea></label>
+        <p id="pp-coins-count" class="muted">0 de 77 lanzamientos</p>
+      </div>
+      <button id="pp-calc" type="button">Calcular mi passphrase de 7 palabras</button>
+      <div id="pp-genmsg"></div>
+      <div id="pp-result" hidden>
+        <p class="warn">Apunta tu passphrase en papel, aparte de tu frase: las palabras en minúsculas, en orden y TODAS JUNTAS, sin ningún espacio entre ellas. Un espacio de más es otra passphrase y abre otra llave, con otra huella. No le hagas foto.</p>
+        <p class="muted" style="margin-bottom:4px">Tu passphrase, tal como se escribe:</p>
+        <p class="fp center" id="pp-joined" style="word-break:break-all;letter-spacing:0;font-size:17px"></p>
+        <p class="muted">Si no cabe en una línea, el salto de línea NO es un espacio: sigue todo junto.</p>
+        <p class="muted" style="margin-bottom:4px">Las mismas palabras, una a una, con su número BIP-39:</p>
+        <ol class="words" id="pp-words"></ol>
+        <button id="pp-use" type="button">La tengo apuntada: usarla como passphrase</button>
+        <button class="sec" id="pp-discard" type="button">Descartar esta passphrase</button>
+      </div>
+    </details>
     <div id="keymsg"></div>
     <div id="draft" hidden>
       <p class="warn">Apunta estas <span id="draft-n">24</span> palabras en papel, en orden. Son tu llave: con ellas cualquiera puede firmar por ti y sin ellas no se recupera. No les hagas foto.</p>

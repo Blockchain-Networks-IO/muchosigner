@@ -80,8 +80,16 @@ En «1 · Tu llave»: dados, monedas o el azar del móvil, 12 o 24 palabras.
 
 - **Dados:** al menos 99 tiradas para 24 palabras (50 para 12). Es el método
   de Coldcard y SeedSigner: la misma secuencia da la misma frase allí.
-- **Apunta la frase en papel.** La página te pide tres palabras al azar para
-  comprobar que la apuntaste bien.
+- **Apunta la frase en papel.** Junto a cada palabra va su número en la lista
+  BIP-39 (del 1 al 2048), por si la pasas a una placa de acero. La página te
+  pide tres palabras al azar para comprobar que la apuntaste bien.
+- **Passphrase con dados o monedas (opcional):** bajo el campo de la
+  passphrase, «Crear la passphrase con dados o monedas» calcula 6 o 7 palabras
+  de la misma lista: al menos 26 o 30 tiradas de dado, o exactamente 66 o 77
+  lanzamientos de moneda (cada 11 son una palabra). La passphrase son esas
+  palabras en minúsculas, **todas juntas y sin espacios**: con un espacio
+  sería otra llave, con otra huella. Usa tiradas nuevas, no las de tu frase, y
+  apúntala aparte: sin ella no se recupera tu llave.
 - **SeedQR (opcional):** «Enseñar mi SeedQR para copiarlo a mano» y una
   plantilla en blanco para copiarlo. Con él, abrir la llave es apuntar la
   cámara («Leer mi SeedQR con la cámara»). Guárdalo como guardas la frase:

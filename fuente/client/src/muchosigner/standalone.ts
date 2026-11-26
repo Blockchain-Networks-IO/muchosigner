@@ -25,6 +25,10 @@ import { base64 } from "@scure/base";
 import {
   COIN_FLIPS,
   DICE_ROLLS,
+  PP_COIN_FLIPS,
+  PP_DICE_ROLLS,
+  bip39WordNumber,
+  joinPassphrase,
   checkPositions,
   checkVault,
   deriveSigner,
@@ -35,11 +39,15 @@ import {
   normalizeCoins,
   normalizeDice,
   parseMnemonic,
+  passphraseFromCoins,
+  passphraseFromDice,
+  passphraseRepeatsMnemonic,
   reviewPsbt,
   signPsbt,
   type PsbtReview,
   type Signer,
   type VaultCheck,
+  type PassphraseWords,
   type WordCount,
 } from "./core";
 import { columnLabel, mnemonicFromSeedQr, seedQrMatrix } from "./seedQr";
@@ -128,9 +136,12 @@ const state: {
   descriptor?: string;
   pending?: { psbt: Uint8Array; review: PsbtReview };
   draft?: string; // frase recién creada, hasta que se comprueba
+  /** Passphrase con dados o monedas: cuántas palabras, cómo, y la calculada (hasta usarla). */
+  pp: { words: PassphraseWords; mode: "dados" | "monedas"; result?: string[] };
   checks?: number[];
 } = {
   words: 24,
+  pp: { words: 7, mode: "dados" },
   singlePurpose: 84,
   singleAccountIndex: 0,
   addr: { net: "evm", scheme: "metamask", purpose: 84, accountIndex: 0, branch: 0, shown: ADDRESSES_PAGE },
@@ -369,6 +380,101 @@ function addCoin(bit: "0" | "1" | "del") {
   updateCoinsCount();
 }
 
+/** Una palabra en su lista: posición, palabra y su número BIP-39 (1–2048). */
+function numberedWord(i: number, w: string): string {
+  return `<li><span>${i + 1}</span>${esc(w)}<em>nº ${bip39WordNumber(w)}</em></li>`;
+}
+
+// ─── Passphrase con dados o monedas ──────────────────────────────────────────
+
+function ppRender() {
+  const { words, mode } = state.pp;
+  $("ppw-6").classList.toggle("on", words === 6);
+  $("ppw-7").classList.toggle("on", words === 7);
+  $("ppm-dados").classList.toggle("on", mode === "dados");
+  $("ppm-monedas").classList.toggle("on", mode === "monedas");
+  show("pp-dados", mode === "dados");
+  show("pp-monedas", mode === "monedas");
+  $("pp-dice-need").textContent = String(PP_DICE_ROLLS[words]);
+  $("pp-coins-need").textContent = String(PP_COIN_FLIPS[words]);
+  $("pp-calc").textContent = `Calcular mi passphrase de ${words} palabras`;
+  ppCount();
+}
+
+function ppCount() {
+  const { words } = state.pp;
+  const dice = $("pp-dice-count");
+  try {
+    const n = normalizeDice($<HTMLTextAreaElement>("pp-dice").value).length;
+    const need = PP_DICE_ROLLS[words];
+    dice.textContent = `${n} de ${need} tiradas`;
+    dice.className = n >= need ? "ok-t" : "muted";
+  } catch (e) {
+    dice.textContent = errText(e);
+    dice.className = "bad-t";
+  }
+  const coins = $("pp-coins-count");
+  try {
+    const n = normalizeCoins($<HTMLTextAreaElement>("pp-coins").value).length;
+    const need = PP_COIN_FLIPS[words];
+    coins.textContent = n > need ? `${n} lanzamientos: sobran ${n - need}` : `${n} de ${need} lanzamientos`;
+    coins.className = n === need ? "ok-t" : n > need ? "bad-t" : "muted";
+  } catch (e) {
+    coins.textContent = errText(e);
+    coins.className = "bad-t";
+  }
+}
+
+function ppAddCoin(bit: "0" | "1" | "del") {
+  const ta = $<HTMLTextAreaElement>("pp-coins");
+  const bits = ta.value.replace(/[^01]/g, "");
+  const next = bit === "del" ? bits.slice(0, -1) : bits + bit;
+  // De 11 en 11: cada grupo es una palabra.
+  ta.value = next.replace(/(.{11})/g, "$1 ").trim();
+  ppCount();
+}
+
+function ppClear() {
+  state.pp.result = undefined;
+  $("pp-words").innerHTML = "";
+  $("pp-joined").textContent = "";
+  show("pp-result", false);
+}
+
+function ppCalc() {
+  say("pp-genmsg", "");
+  ppClear();
+  try {
+    const { words, mode } = state.pp;
+    const pp =
+      mode === "dados"
+        ? passphraseFromDice($<HTMLTextAreaElement>("pp-dice").value, words)
+        : passphraseFromCoins($<HTMLTextAreaElement>("pp-coins").value, words);
+    if (state.draft && passphraseRepeatsMnemonic(state.draft, pp)) {
+      throw new Error("Esta passphrase son las primeras palabras de tu frase: has usado las mismas tiradas o lanzamientos. Hazlos de nuevo.");
+    }
+    state.pp.result = pp;
+    $<HTMLTextAreaElement>("pp-dice").value = "";
+    $<HTMLTextAreaElement>("pp-coins").value = "";
+    ppCount();
+    $("pp-joined").textContent = joinPassphrase(pp);
+    $("pp-words").innerHTML = pp.map((w, i) => numberedWord(i, w)).join("");
+    show("pp-result");
+  } catch (e) {
+    say("pp-genmsg", errText(e), "bad");
+  }
+}
+
+function ppUse() {
+  if (!state.pp.result) return;
+  const input = $<HTMLInputElement>("passphrase");
+  input.value = joinPassphrase(state.pp.result);
+  input.type = "password";
+  ppClear();
+  ($("pp-gen") as HTMLDetailsElement).open = false;
+  say("keymsg", "Passphrase puesta. Se usará al abrir tu llave; la huella saldrá distinta que sin ella.", "ok");
+}
+
 // ─── La frase palabra a palabra ──────────────────────────────────────────────
 
 function peCount(count: WordCount) {
@@ -564,6 +670,7 @@ function openSigner(mnemonic: string) {
   closeCamera();
   hideSeedQr();
   clearEntry();
+  ppClear();
   $<HTMLInputElement>("passphrase").value = "";
   show("key-new", false);
   show("key-open");
@@ -590,7 +697,7 @@ function showDraft(mnemonic: string) {
   $("draft-n").textContent = String(mnemonic.split(" ").length);
   $("draft-words").innerHTML = mnemonic
     .split(" ")
-    .map((w, i) => `<li><span>${i + 1}</span>${esc(w)}</li>`)
+    .map((w, i) => numberedWord(i, w))
     .join("");
   $("draft-checks").innerHTML = state.checks
     .map(p => `<label>Palabra ${p}: <input data-pos="${p}" autocomplete="off" autocapitalize="none" spellcheck="false"></label>`)
@@ -625,6 +732,7 @@ function closeSigner() {
   state.single = undefined;
   state.pendingSingle = undefined;
   clearEntry();
+  ppClear();
   closeCamera();
   stopQr("keyqr");
   stopQr("signedqr");
@@ -1243,6 +1351,34 @@ function init() {
     const i = $<HTMLInputElement>("passphrase");
     i.type = i.type === "password" ? "text" : "password";
   };
+  $("ppw-6").onclick = () => {
+    state.pp.words = 6;
+    ppRender();
+  };
+  $("ppw-7").onclick = () => {
+    state.pp.words = 7;
+    ppRender();
+  };
+  $("ppm-dados").onclick = () => {
+    state.pp.mode = "dados";
+    ppRender();
+  };
+  $("ppm-monedas").onclick = () => {
+    state.pp.mode = "monedas";
+    ppRender();
+  };
+  $<HTMLTextAreaElement>("pp-dice").oninput = ppCount;
+  $<HTMLTextAreaElement>("pp-coins").oninput = ppCount;
+  $("pp-coin-1").onclick = () => ppAddCoin("1");
+  $("pp-coin-0").onclick = () => ppAddCoin("0");
+  $("pp-coin-del").onclick = () => ppAddCoin("del");
+  $("pp-calc").onclick = ppCalc;
+  $("pp-use").onclick = ppUse;
+  $("pp-discard").onclick = () => {
+    ppClear();
+    say("pp-genmsg", "Passphrase descartada.");
+  };
+  ppRender();
 
   $("show-key").onclick = () => {
     if (!state.signer) return;
